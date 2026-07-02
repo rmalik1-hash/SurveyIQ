@@ -2,6 +2,7 @@ import numpy as np
 from data.synthetic.archetypes import simulate_reliable
 from data.synthetic.archetypes import simulate_straightliner
 from data.synthetic.archetypes import simulate_speeder
+from data.synthetic.archetypes import simulate_random_responder
 
 
 def test_reliable_answers_are_within_scale():
@@ -51,3 +52,19 @@ def test_speeder_still_respects_contradiction_pairs():
     )
     a, b = result["answers"][0], result["answers"][1]
     assert a + b == 6
+
+
+def test_random_responder_has_high_variance():
+    rng = np.random.default_rng(4)
+    result = simulate_random_responder(
+        n_questions=1000, scale=(1, 5), contradiction_pairs=[], rng=rng
+    )
+    assert np.std(result["answers"]) > 1.0  # true uniform std over {1..5} is ~1.41
+
+
+def test_random_responder_answers_within_scale():
+    rng = np.random.default_rng(4)
+    result = simulate_random_responder(
+        n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng
+    )
+    assert all(1 <= a <= 5 for a in result["answers"])

@@ -41,3 +41,10 @@ def simulate_speeder(n_questions, scale, contradiction_pairs, rng):
 
     duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.1, 0.3)
     return {"answers": answers, "duration_seconds": int(round(duration))}
+
+
+def simulate_random_responder(n_questions, scale, contradiction_pairs, rng):
+    scale_min, scale_max = scale
+    answers = rng.integers(scale_min, scale_max + 1, size=n_questions).tolist()
+    duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.5, 1.5)
+    return {"answers": answers, "duration_seconds": int(round(duration))}
