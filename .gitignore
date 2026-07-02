@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/synthetic/*.csv
+data/synthetic/*.json
