@@ -63,3 +63,90 @@ def test_attention_check_value_is_drawn_from_scale_for_random_responder():
     rng = np.random.default_rng(7)
     value = _attention_check_value("random_responder", 1, 5, rng)
     assert 1 <= value <= 5
+
+
+import json
+import pandas as pd
+from data.synthetic.generator import generate_survey_csv
+
+
+def test_generate_survey_csv_writes_three_files(tmp_path):
+    output_path = tmp_path / "survey_001.csv"
+    generate_survey_csv(
+        n_respondents=20,
+        n_questions=10,
+        scale=(1, 5),
+        contamination_rate=0.25,
+        seed=42,
+        output_path=str(output_path),
+    )
+
+    labels_path = tmp_path / "survey_001_labels.csv"
+    pairs_path = tmp_path / "survey_001_pairs.json"
+
+    assert output_path.exists()
+    assert labels_path.exists()
+    assert pairs_path.exists()
+
+    survey_df = pd.read_csv(output_path)
+    labels_df = pd.read_csv(labels_path)
+    assert len(survey_df) == 20
+    assert len(labels_df) == 20
+    assert set(labels_df.columns) == {"respondent_id", "is_careless", "archetype"}
+
+    with open(pairs_path) as f:
+        pairs_data = json.load(f)
+    assert pairs_data["n_questions"] == 10
+    assert isinstance(pairs_data["pairs"], list)
+
+
+def test_generate_survey_csv_has_no_ground_truth_columns_in_raw_csv(tmp_path):
+    output_path = tmp_path / "survey_001.csv"
+    generate_survey_csv(
+        n_respondents=10,
+        n_questions=8,
+        scale=(1, 5),
+        contamination_rate=0.25,
+        seed=1,
+        output_path=str(output_path),
+    )
+    survey_df = pd.read_csv(output_path)
+    for forbidden in ("is_careless", "archetype"):
+        assert forbidden not in survey_df.columns
+
+
+def test_generate_survey_csv_includes_expected_messy_columns(tmp_path):
+    output_path = tmp_path / "survey_001.csv"
+    generate_survey_csv(
+        n_respondents=5,
+        n_questions=8,
+        scale=(1, 5),
+        contamination_rate=0.0,
+        seed=1,
+        output_path=str(output_path),
+    )
+    survey_df = pd.read_csv(output_path)
+    assert "Response ID" in survey_df.columns
+    assert "Start Time" in survey_df.columns
+    assert "Timestamp" in survey_df.columns
+    assert "Email Address" in survey_df.columns
+    assert "grade level" in survey_df.columns
+    assert "School Name" in survey_df.columns
+    assert any("[Q1]" in col for col in survey_df.columns)
+    assert any("[AC1]" in col for col in survey_df.columns)
+
+
+def test_generate_survey_csv_is_reproducible_with_same_seed(tmp_path):
+    path_a = tmp_path / "a.csv"
+    path_b = tmp_path / "b.csv"
+    generate_survey_csv(
+        n_respondents=15, n_questions=10, scale=(1, 5),
+        contamination_rate=0.25, seed=99, output_path=str(path_a),
+    )
+    generate_survey_csv(
+        n_respondents=15, n_questions=10, scale=(1, 5),
+        contamination_rate=0.25, seed=99, output_path=str(path_b),
+    )
+    df_a = pd.read_csv(path_a)
+    df_b = pd.read_csv(path_b)
+    pd.testing.assert_frame_equal(df_a, df_b)
