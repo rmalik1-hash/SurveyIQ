@@ -1,5 +1,6 @@
 import numpy as np
 from data.synthetic.archetypes import simulate_reliable
+from data.synthetic.archetypes import simulate_straightliner
 
 
 def test_reliable_answers_are_within_scale():
@@ -24,3 +25,12 @@ def test_reliable_duration_is_near_expected_reading_time():
     result = simulate_reliable(n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng)
     expected = 20 * 8
     assert 0.8 * expected <= result["duration_seconds"] <= 1.5 * expected
+
+
+def test_straightliner_gives_identical_answer_to_every_question():
+    rng = np.random.default_rng(2)
+    result = simulate_straightliner(
+        n_questions=15, scale=(1, 5), contradiction_pairs=[], rng=rng
+    )
+    assert len(set(result["answers"])) == 1
+    assert len(result["answers"]) == 15

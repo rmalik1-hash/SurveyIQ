@@ -19,3 +19,11 @@ def simulate_reliable(n_questions, scale, contradiction_pairs, rng):
 
     duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.9, 1.4)
     return {"answers": answers, "duration_seconds": int(round(duration))}
+
+
+def simulate_straightliner(n_questions, scale, contradiction_pairs, rng):
+    scale_min, scale_max = scale
+    value = int(rng.integers(scale_min, scale_max + 1))
+    answers = [value] * n_questions
+    duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.8, 1.3)
+    return {"answers": answers, "duration_seconds": int(round(duration))}
