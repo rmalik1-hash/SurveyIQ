@@ -3,6 +3,7 @@ from data.synthetic.archetypes import simulate_reliable
 from data.synthetic.archetypes import simulate_straightliner
 from data.synthetic.archetypes import simulate_speeder
 from data.synthetic.archetypes import simulate_random_responder
+from data.synthetic.archetypes import simulate_contradictor
 
 
 def test_reliable_answers_are_within_scale():
@@ -66,5 +67,24 @@ def test_random_responder_answers_within_scale():
     rng = np.random.default_rng(4)
     result = simulate_random_responder(
         n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng
+    )
+    assert all(1 <= a <= 5 for a in result["answers"])
+
+
+def test_contradictor_violates_contradiction_pairs():
+    rng = np.random.default_rng(5)
+    result = simulate_contradictor(
+        n_questions=4, scale=(1, 5), contradiction_pairs=[(0, 1), (2, 3)], rng=rng
+    )
+    answers = result["answers"]
+    for a_idx, b_idx in [(0, 1), (2, 3)]:
+        assert answers[a_idx] == answers[b_idx]
+        assert answers[a_idx] + answers[b_idx] != 6
+
+
+def test_contradictor_answers_within_scale():
+    rng = np.random.default_rng(5)
+    result = simulate_contradictor(
+        n_questions=4, scale=(1, 5), contradiction_pairs=[(0, 1)], rng=rng
     )
     assert all(1 <= a <= 5 for a in result["answers"])

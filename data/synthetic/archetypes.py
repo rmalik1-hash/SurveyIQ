@@ -48,3 +48,22 @@ def simulate_random_responder(n_questions, scale, contradiction_pairs, rng):
     answers = rng.integers(scale_min, scale_max + 1, size=n_questions).tolist()
     duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.5, 1.5)
     return {"answers": answers, "duration_seconds": int(round(duration))}
+
+
+def simulate_contradictor(n_questions, scale, contradiction_pairs, rng):
+    scale_min, scale_max = scale
+    baseline = rng.uniform(scale_min, scale_max)
+    spread = (scale_max - scale_min) * 0.15
+    raw = rng.normal(loc=baseline, scale=spread, size=n_questions)
+    answers = np.clip(np.round(raw), scale_min, scale_max).astype(int).tolist()
+
+    midpoint = (scale_min + scale_max) / 2
+    non_midpoint_values = [v for v in range(scale_min, scale_max + 1) if v != midpoint]
+
+    for a_idx, b_idx in contradiction_pairs:
+        value = int(rng.choice(non_midpoint_values))
+        answers[a_idx] = value
+        answers[b_idx] = value  # same value instead of mirrored -> contradiction
+
+    duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.9, 1.4)
+    return {"answers": answers, "duration_seconds": int(round(duration))}
