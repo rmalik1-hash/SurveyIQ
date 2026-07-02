@@ -1,6 +1,7 @@
 import numpy as np
 from data.synthetic.archetypes import simulate_reliable
 from data.synthetic.archetypes import simulate_straightliner
+from data.synthetic.archetypes import simulate_speeder
 
 
 def test_reliable_answers_are_within_scale():
@@ -34,3 +35,19 @@ def test_straightliner_gives_identical_answer_to_every_question():
     )
     assert len(set(result["answers"])) == 1
     assert len(result["answers"]) == 15
+
+
+def test_speeder_duration_is_implausibly_short():
+    rng = np.random.default_rng(3)
+    result = simulate_speeder(n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng)
+    expected = 20 * 8
+    assert result["duration_seconds"] < 0.5 * expected
+
+
+def test_speeder_still_respects_contradiction_pairs():
+    rng = np.random.default_rng(3)
+    result = simulate_speeder(
+        n_questions=4, scale=(1, 5), contradiction_pairs=[(0, 1)], rng=rng
+    )
+    a, b = result["answers"][0], result["answers"][1]
+    assert a + b == 6

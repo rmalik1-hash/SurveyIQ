@@ -27,3 +27,17 @@ def simulate_straightliner(n_questions, scale, contradiction_pairs, rng):
     answers = [value] * n_questions
     duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.8, 1.3)
     return {"answers": answers, "duration_seconds": int(round(duration))}
+
+
+def simulate_speeder(n_questions, scale, contradiction_pairs, rng):
+    scale_min, scale_max = scale
+    baseline = rng.uniform(scale_min, scale_max)
+    spread = (scale_max - scale_min) * 0.15
+    raw = rng.normal(loc=baseline, scale=spread, size=n_questions)
+    answers = np.clip(np.round(raw), scale_min, scale_max).astype(int).tolist()
+
+    for a_idx, b_idx in contradiction_pairs:
+        answers[b_idx] = _mirror(answers[a_idx], scale_min, scale_max)
+
+    duration = n_questions * AVG_SECONDS_PER_QUESTION * rng.uniform(0.1, 0.3)
+    return {"answers": answers, "duration_seconds": int(round(duration))}
