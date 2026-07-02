@@ -150,3 +150,51 @@ def test_generate_survey_csv_is_reproducible_with_same_seed(tmp_path):
     df_a = pd.read_csv(path_a)
     df_b = pd.read_csv(path_b)
     pd.testing.assert_frame_equal(df_a, df_b)
+
+
+def test_generate_survey_csv_sidecars_are_reproducible_with_same_seed(tmp_path):
+    path_a = tmp_path / "a.csv"
+    path_b = tmp_path / "b.csv"
+    for path in (path_a, path_b):
+        generate_survey_csv(
+            n_respondents=15, n_questions=10, scale=(1, 5),
+            contamination_rate=0.25, seed=99, output_path=str(path),
+        )
+
+    labels_a = pd.read_csv(path_a.with_name("a_labels.csv"))
+    labels_b = pd.read_csv(path_b.with_name("b_labels.csv"))
+    pd.testing.assert_frame_equal(labels_a, labels_b)
+
+    with open(path_a.with_name("a_pairs.json")) as f:
+        pairs_a = json.load(f)
+    with open(path_b.with_name("b_pairs.json")) as f:
+        pairs_b = json.load(f)
+    assert pairs_a == pairs_b
+
+
+@pytest.mark.parametrize(
+    "n_respondents, contamination_rate, expected_careless",
+    [
+        (100, 0.25, 25),
+        (200, 0.25, 50),
+        (10, 0.25, 2),   # round(2.5) -> 2 (banker's rounding)
+        (33, 0.30, 10),  # round(9.9) -> 10
+        (50, 0.0, 0),
+        (50, 1.0, 50),
+    ],
+)
+def test_generate_survey_csv_honors_contamination_rate_across_sizes(
+    tmp_path, n_respondents, contamination_rate, expected_careless
+):
+    output_path = tmp_path / "survey_001.csv"
+    generate_survey_csv(
+        n_respondents=n_respondents,
+        n_questions=10,
+        scale=(1, 5),
+        contamination_rate=contamination_rate,
+        seed=3,
+        output_path=str(output_path),
+    )
+    labels_df = pd.read_csv(output_path.with_name("survey_001_labels.csv"))
+    assert len(labels_df) == n_respondents
+    assert int(labels_df["is_careless"].sum()) == expected_careless

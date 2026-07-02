@@ -122,12 +122,17 @@ are `reliable`.
 
 ### Attention checks and demographics
 
-By default, the generator includes 1-2 attention-check items interspersed
-among the questions (e.g. "Please select Strongly Agree") and 1-2
-demographic columns (grade level, school name) passed through untouched —
-enough to exercise `attention_check_pass_rate` without bloating the survey.
-Both are configurable but present by default so Phase 2's feature extractor
-has real signal to test against.
+By default, the generator includes 1-2 attention-check items (e.g. "Please
+select Strongly Agree") and 1-2 demographic columns (grade level, school
+name) — enough to exercise `attention_check_pass_rate` without bloating the
+survey. Both are configurable but present by default so Phase 2's feature
+extractor has real signal to test against.
+
+Attention-check columns are appended after the question columns and are
+identified by an `[AC#]` tag in the header (not by position), so Phase 2 can
+locate them regardless of order. Demographic columns are generated here
+(the generator has no upstream source to pass through); in real ingestion,
+demographic columns from the source CSV are passed through untouched.
 
 ### Data flow
 
