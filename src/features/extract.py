@@ -38,3 +38,19 @@ def extreme_response_rate(responses, scale_min, scale_max):
         return 0.0
     extreme = sum(1 for v in values if v == scale_min or v == scale_max)
     return extreme / n
+
+
+def attention_check_pass_rate(attention_checks):
+    given_keys = [k for k in attention_checks if k.endswith("_given")]
+    total = 0
+    correct = 0
+    for given_key in given_keys:
+        prefix = given_key[: -len("_given")]
+        correct_key = prefix + "_correct"
+        if correct_key in attention_checks:
+            total += 1
+            if attention_checks[given_key] == attention_checks[correct_key]:
+                correct += 1
+    if total == 0:
+        return 1.0
+    return correct / total

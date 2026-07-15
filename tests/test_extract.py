@@ -75,3 +75,20 @@ def test_extreme_response_rate_half():
 
 def test_extreme_response_rate_degenerate_scale_is_zero():
     assert extreme_response_rate({"q1": 3, "q2": 3}, scale_min=3, scale_max=3) == 0.0
+
+
+from src.features.extract import attention_check_pass_rate
+
+
+def test_attention_all_pass():
+    ac = {"ac1_given": 5, "ac1_correct": 5, "ac2_given": 5, "ac2_correct": 5}
+    assert attention_check_pass_rate(ac) == 1.0
+
+
+def test_attention_half_pass():
+    ac = {"ac1_given": 5, "ac1_correct": 5, "ac2_given": 1, "ac2_correct": 5}
+    assert attention_check_pass_rate(ac) == 0.5
+
+
+def test_attention_no_checks_is_one():
+    assert attention_check_pass_rate({}) == 1.0
