@@ -31,3 +31,15 @@ def _compute_duration(start, end):
     if pd.isna(start_ts) or pd.isna(end_ts):
         return None
     return int((end_ts - start_ts).total_seconds())
+
+
+def _extract_responses(row, question_cols):
+    return {f"q{i + 1}": int(row[col]) for i, col in enumerate(question_cols)}
+
+
+def _extract_attention_checks(row, ac_cols, answers):
+    checks = {}
+    for i, col in enumerate(ac_cols):
+        checks[f"ac{i + 1}_given"] = int(row[col])
+        checks[f"ac{i + 1}_correct"] = int(answers[col])
+    return checks
