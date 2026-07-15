@@ -54,3 +54,22 @@ def attention_check_pass_rate(attention_checks):
     if total == 0:
         return 1.0
     return correct / total
+
+
+def _mirror(value, scale_min, scale_max):
+    return scale_min + scale_max - value
+
+
+def contradiction_score(responses, scale_min, scale_max, pairs, tolerance=1):
+    if not pairs:
+        return 0.0
+    contradicting = 0
+    for a_key, b_key in pairs:
+        if a_key not in responses or b_key not in responses:
+            raise ValueError(
+                f"contradiction pair ({a_key}, {b_key}) references a missing response"
+            )
+        gap = abs(responses[b_key] - _mirror(responses[a_key], scale_min, scale_max))
+        if gap > tolerance:
+            contradicting += 1
+    return contradicting / len(pairs)

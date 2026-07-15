@@ -92,3 +92,42 @@ def test_attention_half_pass():
 
 def test_attention_no_checks_is_one():
     assert attention_check_pass_rate({}) == 1.0
+
+
+from src.features.extract import contradiction_score
+
+
+def test_contradiction_mirrored_pair_is_consistent():
+    # q1=1, q2=5 on a 1-5 scale: 1+5 == min+max, perfectly reverse-coded
+    r = {"q1": 1, "q2": 5}
+    assert contradiction_score(r, 1, 5, [("q1", "q2")]) == 0.0
+
+
+def test_contradiction_matched_pair_contradicts():
+    # q1=1, q2=1: expected mirror of q1 is 5, actual 1 -> gap 4 > tolerance
+    r = {"q1": 1, "q2": 1}
+    assert contradiction_score(r, 1, 5, [("q1", "q2")]) == 1.0
+
+
+def test_contradiction_no_pairs_is_zero():
+    r = {"q1": 1, "q2": 5}
+    assert contradiction_score(r, 1, 5, None) == 0.0
+    assert contradiction_score(r, 1, 5, []) == 0.0
+
+
+def test_contradiction_half_of_two_pairs():
+    # pair1 mirrored (consistent), pair2 matched (contradiction)
+    r = {"q1": 1, "q2": 5, "q3": 2, "q4": 2}
+    assert contradiction_score(r, 1, 5, [("q1", "q2"), ("q3", "q4")]) == 0.5
+
+
+def test_contradiction_within_tolerance_is_consistent():
+    # mirror of q1(2) is 4; q2=3 -> gap 1, not > tolerance(1) -> consistent
+    r = {"q1": 2, "q2": 3}
+    assert contradiction_score(r, 1, 5, [("q1", "q2")]) == 0.0
+
+
+def test_contradiction_pair_key_missing_raises():
+    r = {"q1": 1, "q2": 5}
+    with pytest.raises(ValueError):
+        contradiction_score(r, 1, 5, [("q1", "q9")])
