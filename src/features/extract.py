@@ -17,3 +17,13 @@ def straightlining_score(responses):
         raise ValueError("responses must not be empty")
     modal_count = max(values.count(v) for v in set(values))
     return modal_count / n
+
+
+def response_variance(responses, scale_min, scale_max):
+    values = list(responses.values())
+    if len(values) == 0:
+        raise ValueError("responses must not be empty")
+    if scale_max == scale_min:
+        return 0.0
+    normalized = [(v - scale_min) / (scale_max - scale_min) for v in values]
+    return float(np.std(normalized))

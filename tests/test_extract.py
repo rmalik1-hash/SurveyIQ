@@ -35,3 +35,21 @@ def test_straightlining_partial():
 def test_straightlining_empty_raises():
     with pytest.raises(ValueError):
         straightlining_score({})
+
+
+from src.features.extract import response_variance
+
+
+def test_response_variance_all_same_is_zero():
+    assert response_variance({"q1": 3, "q2": 3, "q3": 3}, scale_min=1, scale_max=5) == 0.0
+
+
+def test_response_variance_alternating_endpoints():
+    # normalized values are 0.0 and 1.0 -> population std 0.5
+    r = {"q1": 1, "q2": 5, "q3": 1, "q4": 5}
+    assert response_variance(r, scale_min=1, scale_max=5) == pytest.approx(0.5)
+
+
+def test_response_variance_degenerate_scale_is_zero():
+    # scale_min == scale_max must not divide by zero
+    assert response_variance({"q1": 3, "q2": 3}, scale_min=3, scale_max=3) == 0.0
