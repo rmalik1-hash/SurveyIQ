@@ -44,3 +44,53 @@ def _pairs_to_qkeys(mapping):
             )
         qkey_pairs.append((col_to_qkey[a_col], col_to_qkey[b_col]))
     return qkey_pairs
+
+
+def train_startup_model(n_respondents=300, n_questions=16, seed=42):
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "train.csv"
+        generate_survey_csv(
+            n_respondents=n_respondents, n_questions=n_questions, scale=(1, 5),
+            contamination_rate=0.3, seed=seed, output_path=str(out),
+        )
+        df = pd.read_csv(out)
+        labels_df = pd.read_csv(Path(tmp) / "train_labels.csv")
+        pairs_idx = json.load(open(Path(tmp) / "train_pairs.json"))["pairs"]
+
+        mapping = _build_training_mapping(list(df.columns))
+        respondents = apply_mapping(df, mapping)
+        pair_keys = [(f"q{a + 1}", f"q{b + 1}") for a, b in pairs_idx]
+        features = extract_features(respondents, contradiction_pairs=pair_keys)
+
+        merged = features.merge(labels_df, on="respondent_id")
+        y = merged["is_careless"].astype(int).tolist()
+        feat = merged[["respondent_id"] + FEATURE_NAMES]
+        return train(feat, y)
+
+
+def analyze(raw_df, mapping, model):
+    respondents = apply_mapping(raw_df, mapping)
+    qkey_pairs = _pairs_to_qkeys(mapping)
+    features = extract_features(respondents, contradiction_pairs=qkey_pairs)
+    preds = predict(model, features)
+
+    total = len(preds)
+    flagged = int((preds["reliability_score"] < 0.5).sum())
+    reliable = total - flagged
+    overall = round(100.0 * reliable / total, 1) if total else 0.0
+
+    respondents_out = [
+        {
+            "respondent_id": row["respondent_id"],
+            "reliability_score": round(float(row["reliability_score"]), 4),
+            "flag_reason": row["flag_reason"],
+        }
+        for _, row in preds.iterrows()
+    ]
+    return {
+        "summary": {
+            "total": total, "flagged": flagged, "reliable": reliable,
+            "overall_quality_pct": overall,
+        },
+        "respondents": respondents_out,
+    }

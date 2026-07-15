@@ -37,3 +37,58 @@ def test_pairs_to_qkeys_non_question_column_raises():
     }
     with pytest.raises(ValueError):
         _pairs_to_qkeys(mapping)
+
+
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from src.api.pipeline_service import train_startup_model, analyze
+from src.models.classifier import train, FEATURE_NAMES
+
+
+def _tiny_model():
+    df = pd.DataFrame({
+        "respondent_id": [f"R{i}" for i in range(6)],
+        "completion_time_ratio": [1.0, 1.1, 0.1, 1.2, 0.12, 1.0],
+        "straightlining_score": [0.3, 0.25, 1.0, 0.2, 0.9, 0.3],
+        "response_variance": [0.4, 0.45, 0.0, 0.5, 0.05, 0.4],
+        "contradiction_score": [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "attention_check_pass_rate": [1.0, 1.0, 1.0, 1.0, 0.0, 1.0],
+        "extreme_response_rate": [0.3, 0.3, 0.2, 0.3, 0.9, 0.2],
+    })
+    return train(df, [0, 0, 1, 0, 1, 0])
+
+
+def test_train_startup_model_returns_fitted():
+    model = train_startup_model(n_respondents=60, n_questions=8, seed=1)
+    assert isinstance(model, DecisionTreeClassifier)
+    assert hasattr(model, "tree_")
+
+
+def test_analyze_returns_summary_and_respondents():
+    raw = pd.DataFrame({
+        "Response ID": ["R1", "R2"],
+        "Q1": [3, 1], "Q2": [3, 5], "Q3": [3, 1], "Q4": [3, 5],
+    })
+    mapping = {
+        "columns": {
+            "Response ID": "respondent_id", "Q1": "question", "Q2": "question",
+            "Q3": "question", "Q4": "question",
+        },
+        "scale": [1, 5],
+    }
+    result = analyze(raw, mapping, _tiny_model())
+    assert result["summary"]["total"] == 2
+    assert result["summary"]["flagged"] + result["summary"]["reliable"] == 2
+    assert len(result["respondents"]) == 2
+    assert set(result["respondents"][0].keys()) == {
+        "respondent_id", "reliability_score", "flag_reason",
+    }
+    for r in result["respondents"]:
+        assert 0.0 <= r["reliability_score"] <= 1.0
+
+
+def test_analyze_invalid_mapping_raises():
+    raw = pd.DataFrame({"Response ID": ["R1"], "Q1": [3]})
+    bad_mapping = {"columns": {"Response ID": "demographic", "Q1": "demographic"}, "scale": [1, 5]}
+    with pytest.raises(ValueError):
+        analyze(raw, bad_mapping, _tiny_model())
