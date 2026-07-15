@@ -55,3 +55,75 @@ def test_extract_attention_checks_pairs_given_and_correct():
 def test_extract_attention_checks_empty():
     row = pd.Series({"Q_a": 3})
     assert _extract_attention_checks(row, [], {}) == {}
+
+
+from src.ingestion.normalize import _validate_mapping, _columns_by_role
+
+
+def _valid_df():
+    return pd.DataFrame({"id": ["R1"], "Q1": [3], "AC1": [5]})
+
+
+def _valid_mapping():
+    return {
+        "columns": {"id": "respondent_id", "Q1": "question", "AC1": "attention_check"},
+        "scale": [1, 5],
+        "attention_check_answers": {"AC1": 5},
+    }
+
+
+def test_validate_mapping_ok():
+    _validate_mapping(_valid_df(), _valid_mapping())  # must not raise
+
+
+def test_validate_mapping_unknown_column():
+    m = _valid_mapping()
+    m["columns"]["ghost"] = "question"
+    with pytest.raises(ValueError):
+        _validate_mapping(_valid_df(), m)
+
+
+def test_validate_mapping_no_respondent_id():
+    m = _valid_mapping()
+    m["columns"]["id"] = "demographic"
+    with pytest.raises(ValueError):
+        _validate_mapping(_valid_df(), m)
+
+
+def test_validate_mapping_two_respondent_ids():
+    df = pd.DataFrame({"id": ["R1"], "id2": ["X"], "Q1": [3], "AC1": [5]})
+    m = _valid_mapping()
+    m["columns"]["id2"] = "respondent_id"
+    with pytest.raises(ValueError):
+        _validate_mapping(df, m)
+
+
+def test_validate_mapping_no_question():
+    m = _valid_mapping()
+    m["columns"]["Q1"] = "demographic"
+    with pytest.raises(ValueError):
+        _validate_mapping(_valid_df(), m)
+
+
+def test_validate_mapping_bad_scale():
+    m = _valid_mapping()
+    m["scale"] = [5, 1]
+    with pytest.raises(ValueError):
+        _validate_mapping(_valid_df(), m)
+
+
+def test_validate_mapping_attention_without_answer():
+    m = _valid_mapping()
+    m["attention_check_answers"] = {}
+    with pytest.raises(ValueError):
+        _validate_mapping(_valid_df(), m)
+
+
+def test_columns_by_role_groups_and_preserves_order():
+    m = {
+        "columns": {"id": "respondent_id", "Qa": "question", "Qb": "question"},
+        "scale": [1, 5],
+    }
+    grouped = _columns_by_role(m)
+    assert grouped["question"] == ["Qa", "Qb"]
+    assert grouped["respondent_id"] == ["id"]

@@ -43,3 +43,36 @@ def _extract_attention_checks(row, ac_cols, answers):
         checks[f"ac{i + 1}_given"] = int(row[col])
         checks[f"ac{i + 1}_correct"] = int(answers[col])
     return checks
+
+
+VALID_ROLES = {
+    "respondent_id", "start_time", "end_time", "question",
+    "attention_check", "demographic", "ignore",
+}
+
+
+def _columns_by_role(mapping):
+    grouped = {role: [] for role in VALID_ROLES}
+    for col, role in mapping["columns"].items():
+        if role in grouped:
+            grouped[role].append(col)
+    return grouped
+
+
+def _validate_mapping(raw_df, mapping):
+    columns = mapping.get("columns", {})
+    for col in columns:
+        if col not in raw_df.columns:
+            raise ValueError(f"mapping references column not in DataFrame: {col!r}")
+    roles = list(columns.values())
+    if roles.count("respondent_id") != 1:
+        raise ValueError("mapping must have exactly one respondent_id column")
+    if "question" not in roles:
+        raise ValueError("mapping must have at least one question column")
+    scale = mapping.get("scale")
+    if not scale or len(scale) != 2 or scale[0] >= scale[1]:
+        raise ValueError("mapping needs a valid scale [min, max] with min < max")
+    answers = mapping.get("attention_check_answers", {})
+    for col, role in columns.items():
+        if role == "attention_check" and col not in answers:
+            raise ValueError(f"attention_check column has no correct answer: {col!r}")
