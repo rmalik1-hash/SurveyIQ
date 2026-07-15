@@ -48,3 +48,28 @@ def test_train_empty_raises():
 def test_train_label_mismatch_raises():
     with pytest.raises(ValueError):
         train(_feature_df(), [0, 1])
+
+
+from src.models.classifier import _clause, _describe_path
+
+
+def test_clause_low_and_high_phrases():
+    low = _clause("straightlining_score", 0.8, went_left=True, is_nan=False)
+    high = _clause("straightlining_score", 0.8, went_left=False, is_nan=False)
+    assert "varied" in low
+    assert "same answer" in high
+    assert "0.80" in high
+
+
+def test_clause_nan_timing():
+    c = _clause("completion_time_ratio", 0.3, went_left=True, is_nan=True)
+    assert "no timing data" in c
+
+
+def test_describe_path_flagged_is_capitalized_sentence():
+    model = train(_feature_df(), [0, 0, 1, 0, 1, 0])
+    X = _feature_matrix(_feature_df())
+    reason = _describe_path(model, X[2])
+    assert isinstance(reason, str)
+    assert reason.endswith(".")
+    assert reason[0].isupper()
