@@ -27,3 +27,14 @@ def response_variance(responses, scale_min, scale_max):
         return 0.0
     normalized = [(v - scale_min) / (scale_max - scale_min) for v in values]
     return float(np.std(normalized))
+
+
+def extreme_response_rate(responses, scale_min, scale_max):
+    values = list(responses.values())
+    n = len(values)
+    if n == 0:
+        raise ValueError("responses must not be empty")
+    if scale_max == scale_min:
+        return 0.0
+    extreme = sum(1 for v in values if v == scale_min or v == scale_max)
+    return extreme / n

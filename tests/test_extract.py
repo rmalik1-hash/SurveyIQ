@@ -53,3 +53,25 @@ def test_response_variance_alternating_endpoints():
 def test_response_variance_degenerate_scale_is_zero():
     # scale_min == scale_max must not divide by zero
     assert response_variance({"q1": 3, "q2": 3}, scale_min=3, scale_max=3) == 0.0
+
+
+from src.features.extract import extreme_response_rate
+
+
+def test_extreme_response_rate_all_endpoints():
+    r = {"q1": 1, "q2": 5, "q3": 1, "q4": 5}
+    assert extreme_response_rate(r, scale_min=1, scale_max=5) == 1.0
+
+
+def test_extreme_response_rate_none_extreme():
+    r = {"q1": 2, "q2": 3, "q3": 4}
+    assert extreme_response_rate(r, scale_min=1, scale_max=5) == 0.0
+
+
+def test_extreme_response_rate_half():
+    r = {"q1": 1, "q2": 3, "q3": 5, "q4": 3}
+    assert extreme_response_rate(r, scale_min=1, scale_max=5) == 0.5
+
+
+def test_extreme_response_rate_degenerate_scale_is_zero():
+    assert extreme_response_rate({"q1": 3, "q2": 3}, scale_min=3, scale_max=3) == 0.0
