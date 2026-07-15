@@ -40,7 +40,7 @@ def _clause(feature_name, threshold, went_left, is_nan):
         return "had no timing data"
     low_phrase, high_phrase = _CLAUSE_TEMPLATES[feature_name]
     phrase = low_phrase if went_left else high_phrase
-    op = "≤" if went_left else ">"
+    op = "<=" if went_left else ">"
     return f"{phrase} ({feature_name} {op} {threshold:.2f})"
 
 
@@ -67,6 +67,8 @@ def _describe_path(model, x_row):
 
 
 def predict(model, feature_df):
+    if "respondent_id" not in feature_df.columns:
+        raise ValueError("feature_df missing column: 'respondent_id'")
     X = _feature_matrix(feature_df)
     proba = model.predict_proba(X)
     classes = list(model.classes_)
@@ -79,7 +81,9 @@ def predict(model, feature_df):
     rows = []
     for i, rid in enumerate(ids):
         flagged = predictions[i] == 1
-        reason = _describe_path(model, X[i]) if flagged else ""
+        reason = ""
+        if flagged:
+            reason = _describe_path(model, X[i]) or "Flagged by the model with no single distinguishing rule."
         rows.append({
             "respondent_id": rid,
             "reliability_score": float(reliability[i]),

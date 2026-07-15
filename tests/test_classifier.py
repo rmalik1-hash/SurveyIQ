@@ -113,3 +113,27 @@ def test_predict_missing_feature_column_raises():
     model = train(df, [0, 0, 1, 0, 1, 0])
     with pytest.raises(ValueError):
         predict(model, df.drop(columns=["contradiction_score"]))
+
+
+def test_predict_missing_respondent_id_raises():
+    df = _feature_df()
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    with pytest.raises(ValueError):
+        predict(model, df.drop(columns=["respondent_id"]))
+
+
+def test_predict_flagged_reason_nonempty_even_for_degenerate_tree():
+    # all-flagged training -> single-class root-leaf tree with no split nodes
+    df = _feature_df()
+    model = train(df, [1, 1, 1, 1, 1, 1])
+    out = predict(model, df)
+    assert (out["reliability_score"] < 0.5).all()  # all flagged
+    assert (out["flag_reason"] != "").all()  # invariant: flagged -> non-empty reason
+
+
+def test_clause_uses_ascii_operator():
+    high = _clause("straightlining_score", 0.8, went_left=False, is_nan=False)
+    low = _clause("straightlining_score", 0.8, went_left=True, is_nan=False)
+    assert ">" in high
+    assert "<=" in low
+    assert "≤" not in low  # no non-ASCII operator
