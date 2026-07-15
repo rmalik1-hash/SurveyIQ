@@ -61,9 +61,11 @@ def _columns_by_role(mapping):
 
 def _validate_mapping(raw_df, mapping):
     columns = mapping.get("columns", {})
-    for col in columns:
+    for col, role in columns.items():
         if col not in raw_df.columns:
             raise ValueError(f"mapping references column not in DataFrame: {col!r}")
+        if role not in VALID_ROLES:
+            raise ValueError(f"unknown role {role!r} for column {col!r}")
     roles = list(columns.values())
     if roles.count("respondent_id") != 1:
         raise ValueError("mapping must have exactly one respondent_id column")

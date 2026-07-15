@@ -186,3 +186,55 @@ def test_apply_mapping_drops_pii_demographic_and_warns():
     with pytest.warns(UserWarning):
         out = apply_mapping(df, mapping)
     assert "Email Address" not in out[0]["demographics"]
+
+
+def test_validate_mapping_rejects_unknown_role():
+    df = pd.DataFrame({"id": ["R1"], "Q1": [3]})
+    mapping = {
+        "columns": {"id": "respondent_id", "Q1": "quesion"},  # typo'd role
+        "scale": [1, 5],
+    }
+    with pytest.raises(ValueError):
+        _validate_mapping(df, mapping)
+
+
+def test_apply_mapping_preserves_row_order_and_second_row():
+    df = pd.DataFrame({
+        "Response ID": ["R1", "R2"],
+        "Q1": [3, 1], "Q2": [3, 5],
+    })
+    mapping = {
+        "columns": {"Response ID": "respondent_id", "Q1": "question", "Q2": "question"},
+        "scale": [1, 5],
+    }
+    out = apply_mapping(df, mapping)
+    assert [r["respondent_id"] for r in out] == ["R1", "R2"]
+    assert out[1]["responses"] == {"q1": 1, "q2": 5}
+
+
+def test_apply_mapping_keeps_non_pii_demographic():
+    df = pd.DataFrame({
+        "Response ID": ["R1"], "Q1": [3], "School Name": ["Lincoln High"],
+    })
+    mapping = {
+        "columns": {
+            "Response ID": "respondent_id", "Q1": "question",
+            "School Name": "demographic",
+        },
+        "scale": [1, 5],
+    }
+    out = apply_mapping(df, mapping)
+    assert out[0]["demographics"] == {"School Name": "Lincoln High"}
+
+
+def test_apply_mapping_warns_when_respondent_id_looks_like_pii():
+    df = pd.DataFrame({
+        "Email": ["a@b.com", "c@d.com"], "Q1": [3, 4],
+    })
+    mapping = {
+        "columns": {"Email": "respondent_id", "Q1": "question"},
+        "scale": [1, 5],
+    }
+    with pytest.warns(UserWarning):
+        out = apply_mapping(df, mapping)
+    assert out[0]["respondent_id"] == "a@b.com"  # kept regardless
