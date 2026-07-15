@@ -131,3 +131,71 @@ def test_contradiction_pair_key_missing_raises():
     r = {"q1": 1, "q2": 5}
     with pytest.raises(ValueError):
         contradiction_score(r, 1, 5, [("q1", "q9")])
+
+
+import pandas as pd
+from src.features.extract import extract_features
+
+
+def _respondent(rid, responses, duration, attention=None):
+    return {
+        "respondent_id": rid,
+        "duration_seconds": duration,
+        "responses": responses,
+        "attention_checks": attention or {},
+        "scale_min": 1,
+        "scale_max": 5,
+    }
+
+
+def test_extract_features_shape_and_columns():
+    respondents = [
+        _respondent("R1", {"q1": 3, "q2": 3, "q3": 3, "q4": 3}, 160,
+                    {"ac1_given": 5, "ac1_correct": 5}),
+        _respondent("R2", {"q1": 1, "q2": 5, "q3": 1, "q4": 5}, 20,
+                    {"ac1_given": 1, "ac1_correct": 5}),
+    ]
+    df = extract_features(respondents)
+    assert list(df.columns) == [
+        "respondent_id", "completion_time_ratio", "straightlining_score",
+        "response_variance", "contradiction_score", "attention_check_pass_rate",
+        "extreme_response_rate",
+    ]
+    assert list(df["respondent_id"]) == ["R1", "R2"]
+    assert len(df) == 2
+
+
+def test_extract_features_values_for_known_respondents():
+    respondents = [
+        _respondent("R1", {"q1": 3, "q2": 3, "q3": 3, "q4": 3}, 160,
+                    {"ac1_given": 5, "ac1_correct": 5}),
+    ]
+    df = extract_features(respondents)
+    row = df.iloc[0]
+    assert row["straightlining_score"] == 1.0
+    assert row["response_variance"] == 0.0
+    assert row["completion_time_ratio"] == pytest.approx(160 / (4 * 8))
+    assert row["attention_check_pass_rate"] == 1.0
+    assert row["extreme_response_rate"] == 0.0
+    assert row["contradiction_score"] == 0.0
+
+
+def test_extract_features_missing_duration_is_nan():
+    respondents = [_respondent("R1", {"q1": 2, "q2": 4}, None)]
+    df = extract_features(respondents)
+    assert np.isnan(df.iloc[0]["completion_time_ratio"])
+
+
+def test_extract_features_uses_contradiction_pairs():
+    respondents = [
+        _respondent("R1", {"q1": 1, "q2": 1, "q3": 2, "q4": 4}, 100),
+    ]
+    df = extract_features(respondents, contradiction_pairs=[("q1", "q2"), ("q3", "q4")])
+    # q1/q2 matched -> contradiction; q3/q4 mirrored (2+4==6) -> consistent
+    assert df.iloc[0]["contradiction_score"] == 0.5
+
+
+def test_extract_features_empty_responses_raises():
+    respondents = [_respondent("R1", {}, 100)]
+    with pytest.raises(ValueError):
+        extract_features(respondents)

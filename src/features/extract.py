@@ -73,3 +73,39 @@ def contradiction_score(responses, scale_min, scale_max, pairs, tolerance=1):
         if gap > tolerance:
             contradicting += 1
     return contradicting / len(pairs)
+
+
+FEATURE_COLUMNS = [
+    "respondent_id",
+    "completion_time_ratio",
+    "straightlining_score",
+    "response_variance",
+    "contradiction_score",
+    "attention_check_pass_rate",
+    "extreme_response_rate",
+]
+
+
+def extract_features(respondents, contradiction_pairs=None):
+    rows = []
+    for r in respondents:
+        responses = r["responses"]
+        if len(responses) == 0:
+            raise ValueError(f"respondent {r.get('respondent_id')} has no responses")
+        num_questions = len(responses)
+        scale_min = r["scale_min"]
+        scale_max = r["scale_max"]
+        rows.append({
+            "respondent_id": r["respondent_id"],
+            "completion_time_ratio": completion_time_ratio(
+                r.get("duration_seconds"), num_questions),
+            "straightlining_score": straightlining_score(responses),
+            "response_variance": response_variance(responses, scale_min, scale_max),
+            "contradiction_score": contradiction_score(
+                responses, scale_min, scale_max, contradiction_pairs),
+            "attention_check_pass_rate": attention_check_pass_rate(
+                r.get("attention_checks", {})),
+            "extreme_response_rate": extreme_response_rate(
+                responses, scale_min, scale_max),
+        })
+    return pd.DataFrame(rows, columns=FEATURE_COLUMNS)
