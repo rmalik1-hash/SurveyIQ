@@ -73,3 +73,43 @@ def test_describe_path_flagged_is_capitalized_sentence():
     assert isinstance(reason, str)
     assert reason.endswith(".")
     assert reason[0].isupper()
+
+
+from src.models.classifier import predict
+
+
+def test_predict_columns_order_and_score_range():
+    df = _feature_df()
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    out = predict(model, df)
+    assert list(out.columns) == ["respondent_id", "reliability_score", "flag_reason"]
+    assert len(out) == 6
+    assert list(out["respondent_id"]) == list(df["respondent_id"])
+    assert ((out["reliability_score"] >= 0) & (out["reliability_score"] <= 1)).all()
+
+
+def test_predict_flagged_have_reason_reliable_empty():
+    df = _feature_df()
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    out = predict(model, df)
+    for _, r in out.iterrows():
+        if r["reliability_score"] < 0.5:
+            assert r["flag_reason"] != ""
+        else:
+            assert r["flag_reason"] == ""
+
+
+def test_predict_handles_nan_feature():
+    df = _feature_df()
+    df.loc[0, "completion_time_ratio"] = np.nan
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    out = predict(model, df)
+    assert len(out) == 6
+    assert out["reliability_score"].notna().all()
+
+
+def test_predict_missing_feature_column_raises():
+    df = _feature_df()
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    with pytest.raises(ValueError):
+        predict(model, df.drop(columns=["contradiction_score"]))

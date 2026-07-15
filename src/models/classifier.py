@@ -64,3 +64,25 @@ def _describe_path(model, x_row):
         return ""
     sentence = " and ".join(clauses)
     return sentence[0].upper() + sentence[1:] + "."
+
+
+def predict(model, feature_df):
+    X = _feature_matrix(feature_df)
+    proba = model.predict_proba(X)
+    classes = list(model.classes_)
+    if 0 in classes:
+        reliability = proba[:, classes.index(0)]
+    else:
+        reliability = np.zeros(len(X))
+    predictions = model.predict(X)
+    ids = feature_df["respondent_id"].tolist()
+    rows = []
+    for i, rid in enumerate(ids):
+        flagged = predictions[i] == 1
+        reason = _describe_path(model, X[i]) if flagged else ""
+        rows.append({
+            "respondent_id": rid,
+            "reliability_score": float(reliability[i]),
+            "flag_reason": reason,
+        })
+    return pd.DataFrame(rows, columns=["respondent_id", "reliability_score", "flag_reason"])
