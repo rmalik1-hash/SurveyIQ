@@ -199,3 +199,13 @@ def test_extract_features_empty_responses_raises():
     respondents = [_respondent("R1", {}, 100)]
     with pytest.raises(ValueError):
         extract_features(respondents)
+
+
+def test_extract_features_empty_list_returns_empty_framed_columns():
+    df = extract_features([])
+    assert len(df) == 0
+    assert list(df.columns) == [
+        "respondent_id", "completion_time_ratio", "straightlining_score",
+        "response_variance", "contradiction_score", "attention_check_pass_rate",
+        "extreme_response_rate",
+    ]
