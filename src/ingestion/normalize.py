@@ -76,3 +76,45 @@ def _validate_mapping(raw_df, mapping):
     for col, role in columns.items():
         if role == "attention_check" and col not in answers:
             raise ValueError(f"attention_check column has no correct answer: {col!r}")
+
+
+def _extract_demographics(row, demo_cols):
+    return {col: row[col] for col in demo_cols}
+
+
+def apply_mapping(raw_df, mapping):
+    _validate_mapping(raw_df, mapping)
+    grouped = _columns_by_role(mapping)
+    scale_min, scale_max = mapping["scale"]
+    answers = mapping.get("attention_check_answers", {})
+
+    id_col = grouped["respondent_id"][0]
+    start_col = grouped["start_time"][0] if grouped["start_time"] else None
+    end_col = grouped["end_time"][0] if grouped["end_time"] else None
+    question_cols = grouped["question"]
+    ac_cols = grouped["attention_check"]
+
+    if _is_pii_column(id_col, raw_df[id_col].tolist()):
+        warnings.warn(f"respondent_id column {id_col!r} looks like it may contain PII")
+
+    demo_cols = []
+    for col in grouped["demographic"]:
+        if _is_pii_column(col, raw_df[col].tolist()):
+            warnings.warn(f"dropping demographic column that looks like PII: {col!r}")
+        else:
+            demo_cols.append(col)
+
+    respondents = []
+    for _, row in raw_df.iterrows():
+        start = row[start_col] if start_col else None
+        end = row[end_col] if end_col else None
+        respondents.append({
+            "respondent_id": str(row[id_col]),
+            "duration_seconds": _compute_duration(start, end),
+            "responses": _extract_responses(row, question_cols),
+            "attention_checks": _extract_attention_checks(row, ac_cols, answers),
+            "demographics": _extract_demographics(row, demo_cols),
+            "scale_min": scale_min,
+            "scale_max": scale_max,
+        })
+    return respondents

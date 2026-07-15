@@ -127,3 +127,62 @@ def test_columns_by_role_groups_and_preserves_order():
     grouped = _columns_by_role(m)
     assert grouped["question"] == ["Qa", "Qb"]
     assert grouped["respondent_id"] == ["id"]
+
+
+import warnings
+from src.ingestion.normalize import apply_mapping
+
+
+def test_apply_mapping_basic_shape():
+    df = pd.DataFrame({
+        "Response ID": ["R1", "R2"],
+        "Start Time": ["2024-03-01T08:00:00", "2024-03-01T08:00:00"],
+        "Timestamp": ["2024-03-01T08:02:00", "2024-03-01T08:01:00"],
+        "Q1": [3, 1], "Q2": [3, 5],
+        "AC1": [5, 1],
+        "grade level": ["9", "10"],
+    })
+    mapping = {
+        "columns": {
+            "Response ID": "respondent_id", "Start Time": "start_time",
+            "Timestamp": "end_time", "Q1": "question", "Q2": "question",
+            "AC1": "attention_check", "grade level": "demographic",
+        },
+        "scale": [1, 5],
+        "attention_check_answers": {"AC1": 5},
+    }
+    out = apply_mapping(df, mapping)
+    assert len(out) == 2
+    r0 = out[0]
+    assert r0["respondent_id"] == "R1"
+    assert r0["duration_seconds"] == 120
+    assert r0["responses"] == {"q1": 3, "q2": 3}
+    assert r0["attention_checks"] == {"ac1_given": 5, "ac1_correct": 5}
+    assert r0["demographics"] == {"grade level": "9"}
+    assert r0["scale_min"] == 1 and r0["scale_max"] == 5
+
+
+def test_apply_mapping_missing_end_time_gives_none_duration():
+    df = pd.DataFrame({"Response ID": ["R1"], "Q1": [3]})
+    mapping = {
+        "columns": {"Response ID": "respondent_id", "Q1": "question"},
+        "scale": [1, 5],
+    }
+    out = apply_mapping(df, mapping)
+    assert out[0]["duration_seconds"] is None
+
+
+def test_apply_mapping_drops_pii_demographic_and_warns():
+    df = pd.DataFrame({
+        "Response ID": ["R1"], "Q1": [3], "Email Address": ["a@b.com"],
+    })
+    mapping = {
+        "columns": {
+            "Response ID": "respondent_id", "Q1": "question",
+            "Email Address": "demographic",
+        },
+        "scale": [1, 5],
+    }
+    with pytest.warns(UserWarning):
+        out = apply_mapping(df, mapping)
+    assert "Email Address" not in out[0]["demographics"]
