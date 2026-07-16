@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.pipeline_service import train_startup_model, analyze
 
@@ -15,6 +16,15 @@ async def lifespan(app):
 
 
 app = FastAPI(title="SurveyIQ API", lifespan=lifespan)
+
+# Permissive CORS for local development: the Vite dev server runs on a different
+# origin. Tighten this before any real deployment.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _read_csv(raw_bytes, nrows=None):

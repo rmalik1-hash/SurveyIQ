@@ -209,3 +209,27 @@ def test_extract_features_empty_list_returns_empty_framed_columns():
         "response_variance", "contradiction_score", "attention_check_pass_rate",
         "extreme_response_rate",
     ]
+
+
+def test_pair_contradicts_mirrored_is_false():
+    from src.features.extract import pair_contradicts
+    # q1=1, q2=5 on 1-5: perfectly reverse-coded
+    assert pair_contradicts({"q1": 1, "q2": 5}, 1, 5, "q1", "q2") is False
+
+
+def test_pair_contradicts_matched_is_true():
+    from src.features.extract import pair_contradicts
+    # q1=1, q2=1: mirror of 1 is 5, gap 4 > tolerance
+    assert pair_contradicts({"q1": 1, "q2": 1}, 1, 5, "q1", "q2") is True
+
+
+def test_pair_contradicts_within_tolerance_is_false():
+    from src.features.extract import pair_contradicts
+    # mirror of 2 is 4; b=3 -> gap 1, not > tolerance(1)
+    assert pair_contradicts({"q1": 2, "q2": 3}, 1, 5, "q1", "q2") is False
+
+
+def test_pair_contradicts_missing_key_raises():
+    from src.features.extract import pair_contradicts
+    with pytest.raises(ValueError):
+        pair_contradicts({"q1": 1}, 1, 5, "q1", "q9")

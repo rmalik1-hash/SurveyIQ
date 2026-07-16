@@ -6,7 +6,7 @@ import pandas as pd
 
 from data.synthetic.generator import generate_survey_csv
 from src.ingestion.normalize import apply_mapping
-from src.features.extract import extract_features
+from src.features.extract import extract_features, pair_contradicts
 from src.models.classifier import train, predict, FEATURE_NAMES
 
 
@@ -69,6 +69,35 @@ def train_startup_model(n_respondents=300, n_questions=16, seed=42):
         return train(feat, y)
 
 
+def _question_stats(respondents, mapping, qkey_pairs):
+    """Per-question trouble counts: how many respondents each pair/check caught."""
+    stats = []
+
+    pair_cols = mapping.get("contradiction_pairs") or []
+    for (a_col, b_col), (a_key, b_key) in zip(pair_cols, qkey_pairs):
+        affected = sum(
+            1 for r in respondents
+            if pair_contradicts(r["responses"], r["scale_min"], r["scale_max"], a_key, b_key)
+        )
+        stats.append({
+            "label": f"{a_col} / {b_col}",
+            "type": "contradiction_pair",
+            "affected": affected,
+        })
+
+    ac_cols = [c for c, role in mapping["columns"].items() if role == "attention_check"]
+    for i, col in enumerate(ac_cols, start=1):
+        given_key, correct_key = f"ac{i}_given", f"ac{i}_correct"
+        affected = sum(
+            1 for r in respondents
+            if r["attention_checks"].get(given_key) != r["attention_checks"].get(correct_key)
+        )
+        stats.append({"label": col, "type": "attention_check", "affected": affected})
+
+    stats.sort(key=lambda s: s["affected"], reverse=True)
+    return stats
+
+
 def analyze(raw_df, mapping, model):
     respondents = apply_mapping(raw_df, mapping)
     qkey_pairs = _pairs_to_qkeys(mapping)
@@ -94,4 +123,5 @@ def analyze(raw_df, mapping, model):
             "overall_quality_pct": overall,
         },
         "respondents": respondents_out,
+        "question_stats": _question_stats(respondents, mapping, qkey_pairs),
     }

@@ -92,3 +92,66 @@ def test_analyze_invalid_mapping_raises():
     bad_mapping = {"columns": {"Response ID": "demographic", "Q1": "demographic"}, "scale": [1, 5]}
     with pytest.raises(ValueError):
         analyze(raw, bad_mapping, _tiny_model())
+
+
+def _stats_respondents():
+    def r(rid, responses, checks):
+        return {"respondent_id": rid, "duration_seconds": 100, "responses": responses,
+                "attention_checks": checks, "scale_min": 1, "scale_max": 5}
+    return [
+        # consistent pair (1+5), passes AC
+        r("R1", {"q1": 1, "q2": 5}, {"ac1_given": 5, "ac1_correct": 5}),
+        # contradicts pair (1,1), fails AC
+        r("R2", {"q1": 1, "q2": 1}, {"ac1_given": 2, "ac1_correct": 5}),
+        # contradicts pair (5,5), passes AC
+        r("R3", {"q1": 5, "q2": 5}, {"ac1_given": 5, "ac1_correct": 5}),
+    ]
+
+
+def _stats_mapping():
+    return {
+        "columns": {"id": "respondent_id", "A": "question", "B": "question", "AC": "attention_check"},
+        "scale": [1, 5],
+        "attention_check_answers": {"AC": 5},
+        "contradiction_pairs": [["A", "B"]],
+    }
+
+
+def test_question_stats_counts_contradictions_and_ac_failures():
+    from src.api.pipeline_service import _question_stats
+    stats = _question_stats(_stats_respondents(), _stats_mapping(), [("q1", "q2")])
+    by_label = {s["label"]: s for s in stats}
+    assert by_label["A / B"]["type"] == "contradiction_pair"
+    assert by_label["A / B"]["affected"] == 2  # R2 and R3
+    assert by_label["AC"]["type"] == "attention_check"
+    assert by_label["AC"]["affected"] == 1  # R2 only
+
+
+def test_question_stats_sorted_by_affected_desc():
+    from src.api.pipeline_service import _question_stats
+    stats = _question_stats(_stats_respondents(), _stats_mapping(), [("q1", "q2")])
+    affected = [s["affected"] for s in stats]
+    assert affected == sorted(affected, reverse=True)
+
+
+def test_question_stats_empty_when_no_pairs_or_checks():
+    from src.api.pipeline_service import _question_stats
+    respondents = [{"respondent_id": "R1", "duration_seconds": 10, "responses": {"q1": 3},
+                    "attention_checks": {}, "scale_min": 1, "scale_max": 5}]
+    mapping = {"columns": {"id": "respondent_id", "A": "question"}, "scale": [1, 5]}
+    assert _question_stats(respondents, mapping, []) == []
+
+
+def test_analyze_response_includes_question_stats():
+    raw = pd.DataFrame({"Response ID": ["R1", "R2"], "Q1": [1, 1], "Q2": [5, 1],
+                        "Q3": [2, 3], "Q4": [4, 3]})
+    mapping = {
+        "columns": {"Response ID": "respondent_id", "Q1": "question", "Q2": "question",
+                    "Q3": "question", "Q4": "question"},
+        "scale": [1, 5],
+        "contradiction_pairs": [["Q1", "Q2"]],
+    }
+    result = analyze(raw, mapping, _tiny_model())
+    assert "question_stats" in result
+    stats = {s["label"]: s["affected"] for s in result["question_stats"]}
+    assert stats["Q1 / Q2"] == 1  # only R2 contradicts

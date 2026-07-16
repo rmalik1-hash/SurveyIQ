@@ -60,18 +60,27 @@ def _mirror(value, scale_min, scale_max):
     return scale_min + scale_max - value
 
 
+def pair_contradicts(responses, scale_min, scale_max, a_key, b_key, tolerance=1):
+    """True if a reverse-coded pair's answers are inconsistent.
+
+    The single definition of "what counts as a contradiction", shared by
+    contradiction_score and the API's per-question stats.
+    """
+    if a_key not in responses or b_key not in responses:
+        raise ValueError(
+            f"contradiction pair ({a_key}, {b_key}) references a missing response"
+        )
+    gap = abs(responses[b_key] - _mirror(responses[a_key], scale_min, scale_max))
+    return gap > tolerance
+
+
 def contradiction_score(responses, scale_min, scale_max, pairs, tolerance=1):
     if not pairs:
         return 0.0
-    contradicting = 0
-    for a_key, b_key in pairs:
-        if a_key not in responses or b_key not in responses:
-            raise ValueError(
-                f"contradiction pair ({a_key}, {b_key}) references a missing response"
-            )
-        gap = abs(responses[b_key] - _mirror(responses[a_key], scale_min, scale_max))
-        if gap > tolerance:
-            contradicting += 1
+    contradicting = sum(
+        1 for a_key, b_key in pairs
+        if pair_contradicts(responses, scale_min, scale_max, a_key, b_key, tolerance)
+    )
     return contradicting / len(pairs)
 
 
