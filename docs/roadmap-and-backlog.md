@@ -14,15 +14,27 @@ missing. This is a deliberate design commitment (see Graceful degradation).
 
 | Phase | Component | Status |
 |---|---|---|
-| 1 | Synthetic data generator (`data/synthetic/`) | Done — merged, 37 tests |
-| 2 | Feature extractor (`src/features/`) | Next — designed, awaiting build |
-| 3 | Normalizer + column mapper (`src/ingestion/`) | Planned |
-| 4 | Decision-tree trainer + scorer (`src/models/`) | Planned — gated (see G1) |
-| 5 | FastAPI backend (`src/api/`) | Planned |
-| 6 | React dashboard (`frontend/`) | Planned |
+| 1 | Synthetic data generator (`data/synthetic/`) | Done |
+| 2 | Feature extractor (`src/features/`) | Done |
+| 3 | Normalizer + column mapper (`src/ingestion/`) | Done |
+| 4 | Decision-tree trainer + scorer (`src/models/`) | Done — gated (see G1) |
+| 5 | FastAPI backend (`src/api/`) | Done |
+| 6 | React dashboard (`frontend/`) | Done |
 
-The dashboard mockup (`mockups/dashboard-mockup.html`) is the visual target for
-Phase 6. It is illustrative only — the scoring behind it is Phase 4.
+**v1 is complete.** 129 Python tests + 22 frontend tests. An administrator can
+upload a CSV, map columns once, see the quality score and every flag explained
+in plain English, and download a marked or cleaned dataset — verified end to end
+in a browser against the live API.
+
+The mockup (`mockups/dashboard-mockup.html`) was the visual target and is now
+superseded by the real dashboard; keep it only as a reference/talking piece.
+
+## What matters most now
+
+The build is done; the open work is **trust**, not features. G1 below still
+stands: nothing about the model's accuracy is a real-world claim until R2 and
+ideally R1 are done. R1 is the only item the team (not code) must drive, and it
+has a long approval lead time — start it first.
 
 ## Graceful degradation (design commitment)
 
