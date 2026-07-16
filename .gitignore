@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 data/synthetic/*.csv
 data/synthetic/*.json
+
+# Real survey data must never be committed (contains names/emails)
+*.xlsx
+data/real/

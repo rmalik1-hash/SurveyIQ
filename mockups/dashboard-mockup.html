@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SurveyIQ — Data quality report (mockup)</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --card: #ffffff;
+    --ink: #1c1c1a;
+    --ink-2: #5f5e5a;
+    --ink-3: #8a8984;
+    --line: #e6e5df;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --good: #0f6e56;
+    --good-bg: #e1f5ee;
+    --warn: #854f0b;
+    --warn-bg: #faeeda;
+    --bad: #a32d2d;
+    --bad-bg: #fcebeb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 24px 56px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark {
+    width: 38px; height: 38px; border-radius: 9px; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px;
+  }
+  .brand h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  .brand p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .filemeta { font-size: 13px; color: var(--ink-2); text-align: right; }
+  .filemeta strong { color: var(--ink); font-weight: 600; }
+
+  .banner {
+    margin: 18px 0 24px; background: var(--warn-bg); color: var(--warn);
+    border: 1px solid #f0dcbb; border-radius: var(--radius); padding: 10px 14px; font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .grid { display: grid; gap: 16px; }
+  .kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
+  @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .kpi .label { font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .value { font-size: 30px; font-weight: 600; margin-top: 4px; }
+  .kpi .sub { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .value.good { color: var(--good); }
+  .value.bad { color: var(--bad); }
+
+  .cols { grid-template-columns: 1.15fr 1fr; align-items: stretch; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+  .panel .hint { font-size: 12.5px; color: var(--ink-2); margin: 0 0 14px; }
+
+  .gaugewrap { display: flex; align-items: center; gap: 20px; }
+  .gauge { position: relative; width: 150px; height: 150px; flex: none; }
+  .gauge .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gauge .pct { font-size: 30px; font-weight: 600; color: var(--good); }
+  .gauge .cap { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .legend { font-size: 13px; }
+  .legend .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .legend .n { margin-left: auto; font-weight: 600; }
+
+  .breakdown .brow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; }
+  .breakdown .name { width: 128px; flex: none; color: var(--ink); }
+  .breakdown .track { flex: 1; height: 10px; background: #eeede8; border-radius: 6px; overflow: hidden; }
+  .breakdown .fill { height: 100%; border-radius: 6px; }
+  .breakdown .cnt { width: 26px; text-align: right; font-weight: 600; color: var(--ink-2); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  tbody td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  .rid { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--ink); }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+  .pill.straight { background: var(--warn-bg); color: var(--warn); }
+  .pill.speed { background: var(--bad-bg); color: var(--bad); }
+  .pill.random { background: #efe9f9; color: #3c3489; }
+  .pill.contra { background: var(--accent-bg); color: var(--accent); }
+  .score { display: flex; align-items: center; gap: 8px; }
+  .score .bar { width: 66px; height: 7px; background: #eeede8; border-radius: 5px; overflow: hidden; }
+  .score .barfill { height: 100%; border-radius: 5px; }
+  .score .num { font-weight: 600; width: 30px; }
+  .reason { color: var(--ink-2); }
+  .chartwrap { position: relative; height: 260px; }
+  .foot { margin-top: 22px; font-size: 12px; color: var(--ink-3); text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">SQ</div>
+      <div>
+        <h1>SurveyIQ — data quality report</h1>
+        <p>Careless-response detection for survey data</p>
+      </div>
+    </div>
+    <div class="filemeta">
+      <div><strong>student_wellbeing_survey.csv</strong></div>
+      <div>200 responses · 20 questions · 1–5 scale</div>
+    </div>
+  </div>
+
+  <div class="banner">
+    <span>Illustrative mockup — numbers are from SurveyIQ synthetic test data, not a real school survey. Shows what the finished product will present.</span>
+  </div>
+
+  <div class="grid kpis">
+    <div class="kpi">
+      <div class="label">Overall data quality</div>
+      <div class="value good">75%</div>
+      <div class="sub">Share of responses safe to keep</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total responses</div>
+      <div class="value">200</div>
+      <div class="sub">Uploaded from CSV</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Trustworthy</div>
+      <div class="value good">150</div>
+      <div class="sub">Passed all reliability checks</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Flagged</div>
+      <div class="value bad">50</div>
+      <div class="sub">Careless responding detected</div>
+    </div>
+  </div>
+
+  <div class="grid cols" style="margin-bottom:16px;">
+    <div class="panel">
+      <h2>Reliability overview</h2>
+      <p class="hint">Proportion of responses the model trusts</p>
+      <div class="gaugewrap">
+        <div class="gauge">
+          <canvas id="gauge" role="img" aria-label="75 percent of responses trustworthy, 25 percent flagged"></canvas>
+          <div class="center"><span class="pct">75%</span><span class="cap">trustworthy</span></div>
+        </div>
+        <div class="legend">
+          <div class="row"><span class="dot" style="background:#1d9e75"></span> Trustworthy <span class="n">150</span></div>
+          <div class="row"><span class="dot" style="background:#e24b4a"></span> Flagged <span class="n">50</span></div>
+          <div class="row" style="color:var(--ink-2); font-size:12px; margin-top:6px;">Recommend removing the 50 flagged rows before analysis.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel breakdown">
+      <h2>Why responses were flagged</h2>
+      <p class="hint">Each careless pattern trips a different signal</p>
+      <div class="brow"><span class="name">Straightlining</span><span class="track"><span class="fill" style="width:100%;background:#ba7517"></span></span><span class="cnt">13</span></div>
+      <div class="brow"><span class="name">Speeding</span><span class="track"><span class="fill" style="width:100%;background:#e24b4a"></span></span><span class="cnt">13</span></div>
+      <div class="brow"><span class="name">Random answering</span><span class="track"><span class="fill" style="width:92%;background:#7f77dd"></span></span><span class="cnt">12</span></div>
+      <div class="brow"><span class="name">Contradictions</span><span class="track"><span class="fill" style="width:92%;background:#378add"></span></span><span class="cnt">12</span></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <h2>Flagged respondents</h2>
+    <p class="hint">Every flag comes with a plain-English reason an administrator can act on</p>
+    <table>
+      <thead>
+        <tr><th>Respondent</th><th>Pattern</th><th>Reliability</th><th>Why it was flagged</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rid">R0011</td>
+          <td><span class="pill speed">Speeder</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:8%;background:#e24b4a"></span></span><span class="num">0.08</span></div></td>
+          <td class="reason">Finished all 20 questions in 21 seconds — far too fast to have read them.</td>
+        </tr>
+        <tr>
+          <td class="rid">R0006</td>
+          <td><span class="pill straight">Straightliner</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:12%;background:#ba7517"></span></span><span class="num">0.12</span></div></td>
+          <td class="reason">Gave the same answer to all 20 questions.</td>
+        </tr>
+        <tr>
+          <td class="rid">R0002</td>
+          <td><span class="pill random">Random answering</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:18%;background:#7f77dd"></span></span><span class="num">0.18</span></div></td>
+          <td class="reason">Failed both attention checks and answers showed no consistent pattern.</td>
+        </tr>
+        <tr>
+          <td class="rid">R0004</td>
+          <td><span class="pill contra">Contradiction</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:34%;background:#378add"></span></span><span class="num">0.34</span></div></td>
+          <td class="reason">Answered "I enjoy school" and "I dislike school" the same way — both pairs contradict.</td>
+        </tr>
+        <tr>
+          <td class="rid">R0018</td>
+          <td><span class="pill random">Random answering</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:29%;background:#7f77dd"></span></span><span class="num">0.29</span></div></td>
+          <td class="reason">Failed one attention check; response variance far above the norm.</td>
+        </tr>
+        <tr>
+          <td class="rid">R0014</td>
+          <td><span class="pill speed">Speeder</span></td>
+          <td><div class="score"><span class="bar"><span class="barfill" style="width:15%;background:#e24b4a"></span></span><span class="num">0.15</span></div></td>
+          <td class="reason">Completed the survey in 36 seconds (about 1.8s per question).</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="hint" style="margin:14px 0 0;">Showing 6 of 50 flagged responses.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Most problematic questions</h2>
+    <p class="hint">Where inconsistencies and missed attention checks concentrated</p>
+    <div class="chartwrap">
+      <canvas id="qchart" role="img" aria-label="Bar chart: question pairs Q1/Q2 and Q3/Q4 each had 34 contradictions; attention checks AC2 and AC1 had 11 and 8 failures.">Q1/Q2 pair: 34 contradictions. Q3/Q4 pair: 34 contradictions. Attention check 2: 11 fails. Attention check 1: 8 fails.</canvas>
+    </div>
+  </div>
+
+  <p class="foot">SurveyIQ · SAIL AI Innovation Fellowship · IMSA · illustrative mockup generated from synthetic data</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  new Chart(document.getElementById('gauge'), {
+    type: 'doughnut',
+    data: { labels: ['Trustworthy','Flagged'], datasets: [{ data: [150,50], backgroundColor: ['#1d9e75','#e24b4a'], borderWidth: 0 }] },
+    options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, responsive: true, maintainAspectRatio: false }
+  });
+  new Chart(document.getElementById('qchart'), {
+    type: 'bar',
+    data: {
+      labels: ['Q1 / Q2 pair','Q3 / Q4 pair','Attention check 2','Attention check 1'],
+      datasets: [{ label: 'Responses affected', data: [34,34,11,8], backgroundColor: '#378add', borderRadius: 4, maxBarThickness: 26 }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: '#e6e5df' }, ticks: { color: '#8a8984' } },
+        y: { grid: { display: false }, ticks: { color: '#5f5e5a' } }
+      },
+      responsive: true, maintainAspectRatio: false
+    }
+  });
+</script>
+</body>
+</html>
