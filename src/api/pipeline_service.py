@@ -55,7 +55,8 @@ def train_startup_model(n_respondents=300, n_questions=16, seed=42):
         )
         df = pd.read_csv(out)
         labels_df = pd.read_csv(Path(tmp) / "train_labels.csv")
-        pairs_idx = json.load(open(Path(tmp) / "train_pairs.json"))["pairs"]
+        with open(Path(tmp) / "train_pairs.json") as pairs_file:
+            pairs_idx = json.load(pairs_file)["pairs"]
 
         mapping = _build_training_mapping(list(df.columns))
         respondents = apply_mapping(df, mapping)

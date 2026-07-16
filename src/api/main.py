@@ -17,9 +17,9 @@ async def lifespan(app):
 app = FastAPI(title="SurveyIQ API", lifespan=lifespan)
 
 
-def _read_csv(raw_bytes):
+def _read_csv(raw_bytes, nrows=None):
     try:
-        return pd.read_csv(io.BytesIO(raw_bytes))
+        return pd.read_csv(io.BytesIO(raw_bytes), nrows=nrows)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"could not parse CSV: {exc}")
 
@@ -31,7 +31,7 @@ def health():
 
 @app.post("/columns")
 async def columns(file: UploadFile = File(...)):
-    df = _read_csv(await file.read())
+    df = _read_csv(await file.read(), nrows=0)  # headers only; respondent rows are not needed
     return {"columns": list(df.columns)}
 
 

@@ -50,6 +50,17 @@ def test_analyze_ok(client, tmp_path_factory):
     assert len(body["respondents"]) == len(df)
     assert body["summary"]["flagged"] + body["summary"]["reliable"] == len(df)
 
+    # the generated survey is 30% careless, so the model must flag someone
+    flagged = [r for r in body["respondents"] if r["reliability_score"] < 0.5]
+    assert len(flagged) == body["summary"]["flagged"] > 0
+    # every flag must be explainable -- the product's core promise
+    for r in flagged:
+        assert r["flag_reason"] != ""
+        assert r["flag_reason"].endswith(".")
+    for r in body["respondents"]:
+        if r["reliability_score"] >= 0.5:
+            assert r["flag_reason"] == ""
+
 
 def test_analyze_bad_mapping_returns_400(client, tmp_path_factory):
     data, df = _generated_csv(tmp_path_factory)

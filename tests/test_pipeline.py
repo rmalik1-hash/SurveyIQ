@@ -3,28 +3,7 @@ import pandas as pd
 from data.synthetic.generator import generate_survey_csv
 from src.ingestion.normalize import apply_mapping
 from src.features.extract import extract_features
-
-
-def _build_mapping(columns):
-    col_roles = {}
-    ac_answers = {}
-    for c in columns:
-        if "[Q" in c:
-            col_roles[c] = "question"
-        elif "[AC" in c:
-            col_roles[c] = "attention_check"
-            ac_answers[c] = 5
-        elif c == "Response ID":
-            col_roles[c] = "respondent_id"
-        elif c == "Start Time":
-            col_roles[c] = "start_time"
-        elif c == "Timestamp":
-            col_roles[c] = "end_time"
-        elif c == "Email Address":
-            col_roles[c] = "ignore"
-        else:
-            col_roles[c] = "demographic"
-    return {"columns": col_roles, "scale": [1, 5], "attention_check_answers": ac_answers}
+from src.api.pipeline_service import _build_training_mapping as _build_mapping
 
 
 def test_full_pipeline_separates_archetypes(tmp_path):
