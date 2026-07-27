@@ -1,11 +1,18 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Plotly from "plotly.js-dist-min";
 import { buildCleanedRows, toCsv, downloadCsv, FLAG_THRESHOLD } from "../lib/cleanedCsv.js";
 import ChartBoundary from "./ChartBoundary.jsx";
 
 const PLOT_CONFIG = { displayModeBar: false, responsive: true };
 
-function shorten(label, max = 46) {
+/**
+ * Survey headers are long sentences, so axis labels get clipped and unreadable.
+ * Most exports carry a short tag like "[Q1]" or "[AC2]" -- prefer that, and fall
+ * back to a truncated header. The full label still shows on hover.
+ */
+function shorten(label, max = 30) {
+  const tags = label.match(/\[[^\]]+\]/g);
+  if (tags) return tags.join(" / ");
   return label.length > max ? `${label.slice(0, max - 1)}…` : label;
 }
 
@@ -59,7 +66,7 @@ function QuestionChart({ stats }) {
         hoverinfo: "text+x",
       }],
       {
-        margin: { t: 10, b: 40, l: 240, r: 20 },
+        margin: { t: 10, b: 40, l: 150, r: 20 },
         height: Math.max(160, ordered.length * 42 + 80),
         xaxis: { title: "Respondents affected" },
       },
@@ -73,6 +80,9 @@ function QuestionChart({ stats }) {
 export default function ResultsDashboard({ result, originalRows, idColumn, fileName, onStartOver }) {
   const { summary, respondents, question_stats: questionStats } = result;
   const flagged = respondents.filter((r) => r.reliability_score < FLAG_THRESHOLD);
+  const [showAll, setShowAll] = useState(false);
+  const PREVIEW_COUNT = 10;
+  const visible = showAll ? flagged : flagged.slice(0, PREVIEW_COUNT);
 
   const download = (mode) => {
     const rows = buildCleanedRows(originalRows, respondents, idColumn, mode);
@@ -120,7 +130,7 @@ export default function ResultsDashboard({ result, originalRows, idColumn, fileN
               <tr><th>Respondent</th><th>Reliability</th><th>Why it was flagged</th></tr>
             </thead>
             <tbody>
-              {flagged.map((r) => (
+              {visible.map((r) => (
                 <tr key={r.respondent_id}>
                   <td className="mono">{r.respondent_id}</td>
                   <td className="mono">{r.reliability_score.toFixed(2)}</td>
@@ -129,6 +139,16 @@ export default function ResultsDashboard({ result, originalRows, idColumn, fileN
               ))}
             </tbody>
           </table>
+        )}
+        {flagged.length > PREVIEW_COUNT && (
+          <div className="table-foot">
+            <span className="hint" style={{ margin: 0 }}>
+              Showing {visible.length} of {flagged.length} flagged
+            </span>
+            <button type="button" onClick={() => setShowAll(!showAll)}>
+              {showAll ? "Show fewer" : `Show all ${flagged.length}`}
+            </button>
+          </div>
         )}
       </div>
 

@@ -4,7 +4,7 @@ export default function UploadStep({ onFileReady, onTrySample, busy, error }) {
   const [file, setFile] = useState(null);
 
   return (
-    <section className="card">
+    <section className="card upload-card">
       <h2>Upload a survey export</h2>
       <p className="hint">
         Choose the CSV or Excel file your survey tool produced. Nothing is stored on the

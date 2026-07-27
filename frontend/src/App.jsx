@@ -1,6 +1,10 @@
 import { useState } from "react";
 import Papa from "papaparse";
 import { fetchColumns, analyzeSurvey, generateSampleSurvey } from "./lib/api.js";
+import Navbar from "./components/Navbar.jsx";
+import Hero from "./components/Hero.jsx";
+import SignalsSection from "./components/SignalsSection.jsx";
+import Footer from "./components/Footer.jsx";
 import UploadStep from "./components/UploadStep.jsx";
 import MappingStep from "./components/MappingStep.jsx";
 import ResultsDashboard from "./components/ResultsDashboard.jsx";
@@ -82,41 +86,44 @@ export default function App() {
   };
 
   return (
-    <div className="wrap">
-      <header className="topbar">
-        <div className="mark">SQ</div>
-        <div>
-          <h1>SurveyIQ</h1>
-          <p className="hint">Which survey responses can you trust?</p>
-        </div>
-      </header>
+    <div className="page">
+      <Navbar step={step} />
 
-      {step === "upload" && (
-        <UploadStep
-          onFileReady={handleFile}
-          onTrySample={handleTrySample}
-          busy={busy}
-          error={error}
-        />
-      )}
-      {step === "map" && (
-        <MappingStep
-          columns={columns}
-          onAnalyze={handleAnalyze}
-          onBack={startOver}
-          busy={busy}
-          error={error}
-        />
-      )}
-      {step === "results" && result && (
-        <ResultsDashboard
-          result={result}
-          originalRows={rows}
-          idColumn={idColumn}
-          fileName={file?.name ?? "survey.csv"}
-          onStartOver={startOver}
-        />
-      )}
+      <main className="wrap">
+        {step === "upload" && <Hero />}
+
+        {step === "upload" && (
+          <UploadStep
+            onFileReady={handleFile}
+            onTrySample={handleTrySample}
+            busy={busy}
+            error={error}
+          />
+        )}
+        {step === "map" && (
+          <MappingStep
+            columns={columns}
+            onAnalyze={handleAnalyze}
+            onBack={startOver}
+            busy={busy}
+            error={error}
+          />
+        )}
+
+        {step === "results" && result && (
+          <ResultsDashboard
+            result={result}
+            originalRows={rows}
+            idColumn={idColumn}
+            fileName={file?.name ?? "survey.csv"}
+            onStartOver={startOver}
+          />
+        )}
+
+        {step === "upload" && <SignalsSection />}
+      </main>
+
+      <Footer />
     </div>
   );
 }
