@@ -34,7 +34,23 @@ def _compute_duration(start, end):
 
 
 def _extract_responses(row, question_cols):
-    return {f"q{i + 1}": int(row[col]) for i, col in enumerate(question_cols)}
+    responses = {}
+    for i, col in enumerate(question_cols):
+        value = row[col]
+        try:
+            responses[f"q{i + 1}"] = int(value)
+        except (ValueError, TypeError):
+            # Surface a message an administrator can act on, naming the column
+            # and what to do, rather than a bare pandas error. Blanks are not
+            # silently dropped: that would change the denominator behind the
+            # timing and straightlining scores without telling anyone.
+            raise ValueError(
+                f"Column {col!r} contains a non-numeric answer: {value!r}. "
+                f"SurveyIQ only scores numeric scale questions (e.g. 1-5). "
+                f"Map this column as 'demographic' or 'ignore', or clean the "
+                f"blank/invalid cells."
+            )
+    return responses
 
 
 def _extract_attention_checks(row, ac_cols, answers):

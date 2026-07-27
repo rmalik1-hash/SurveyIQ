@@ -19,6 +19,22 @@ export async function fetchColumns(file) {
   return body.columns;
 }
 
+/** Ask the API for a synthetic survey so the dashboard can be tried without real data. */
+export async function generateSampleSurvey({
+  nRespondents = 150,
+  nQuestions = 15,
+  contaminationRate = 0.25,
+} = {}) {
+  const form = new FormData();
+  form.append("n_respondents", String(nRespondents));
+  form.append("n_questions", String(nQuestions));
+  form.append("contamination_rate", String(contaminationRate));
+  const res = await fetch(`${BASE}/generate`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const blob = await res.blob();
+  return new File([blob], "synthetic_survey.csv", { type: "text/csv" });
+}
+
 export async function analyzeSurvey(file, mapping) {
   const form = new FormData();
   form.append("file", file);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Papa from "papaparse";
-import { fetchColumns, analyzeSurvey } from "./lib/api.js";
+import { fetchColumns, analyzeSurvey, generateSampleSurvey } from "./lib/api.js";
 import UploadStep from "./components/UploadStep.jsx";
 import MappingStep from "./components/MappingStep.jsx";
 import ResultsDashboard from "./components/ResultsDashboard.jsx";
@@ -45,6 +45,17 @@ export default function App() {
     }
   };
 
+  const handleTrySample = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await handleFile(await generateSampleSurvey());
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
+  };
+
   const handleAnalyze = async (mapping) => {
     setBusy(true);
     setError("");
@@ -81,7 +92,12 @@ export default function App() {
       </header>
 
       {step === "upload" && (
-        <UploadStep onFileReady={handleFile} busy={busy} error={error} />
+        <UploadStep
+          onFileReady={handleFile}
+          onTrySample={handleTrySample}
+          busy={busy}
+          error={error}
+        />
       )}
       {step === "map" && (
         <MappingStep

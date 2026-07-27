@@ -1,3 +1,4 @@
+import io
 import json
 import pandas as pd
 import pytest
@@ -77,3 +78,75 @@ def test_analyze_missing_mapping_returns_422(client, tmp_path_factory):
     data, df = _generated_csv(tmp_path_factory)
     r = client.post("/analyze", files={"file": ("s.csv", data, "text/csv")})
     assert r.status_code == 422
+
+
+def test_generate_returns_a_usable_csv(client):
+    r = client.post(
+        "/generate",
+        data={"n_respondents": "30", "n_questions": "8", "contamination_rate": "0.3"},
+    )
+    assert r.status_code == 200
+    assert "text/csv" in r.headers["content-type"]
+    df = pd.read_csv(io.BytesIO(r.content))
+    assert len(df) == 30
+    assert "Response ID" in df.columns
+    # ground truth must never be served alongside the survey
+    assert "is_careless" not in df.columns
+    assert "archetype" not in df.columns
+
+
+def test_generate_output_flows_through_analyze(client):
+    gen = client.post("/generate", data={"n_respondents": "40", "n_questions": "8"})
+    assert gen.status_code == 200
+    df = pd.read_csv(io.BytesIO(gen.content))
+    mapping = _build_training_mapping(list(df.columns))
+    r = client.post(
+        "/analyze",
+        files={"file": ("synthetic_survey.csv", gen.content, "text/csv")},
+        data={"mapping": json.dumps(mapping)},
+    )
+    assert r.status_code == 200
+    assert r.json()["summary"]["total"] == 40
+
+
+def test_generate_rejects_invalid_parameters(client):
+    r = client.post("/generate", data={"n_respondents": "0", "n_questions": "8"})
+    assert r.status_code == 400
+
+
+def test_columns_accepts_xlsx_upload(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    xlsx_path = tmp_path_factory.mktemp("xlsx") / "survey.xlsx"
+    pd.read_csv(io.BytesIO(data)).to_excel(xlsx_path, index=False)
+    r = client.post(
+        "/columns",
+        files={
+            "file": (
+                "survey.xlsx",
+                xlsx_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["columns"] == list(df.columns)
+
+
+def test_analyze_accepts_xlsx_upload(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    xlsx_path = tmp_path_factory.mktemp("xlsx2") / "survey.xlsx"
+    pd.read_csv(io.BytesIO(data)).to_excel(xlsx_path, index=False)
+    mapping = _build_training_mapping(list(df.columns))
+    r = client.post(
+        "/analyze",
+        files={
+            "file": (
+                "survey.xlsx",
+                xlsx_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        data={"mapping": json.dumps(mapping)},
+    )
+    assert r.status_code == 200
+    assert r.json()["summary"]["total"] == len(df)

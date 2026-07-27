@@ -50,20 +50,56 @@ def test_train_label_mismatch_raises():
         train(_feature_df(), [0, 1])
 
 
-from src.models.classifier import _clause, _describe_path
+from src.models.classifier import _describe_split, _describe_path
 
 
-def test_clause_low_and_high_phrases():
-    low = _clause("straightlining_score", 0.8, went_left=True, is_nan=False)
-    high = _clause("straightlining_score", 0.8, went_left=False, is_nan=False)
-    assert "varied" in low
-    assert "same answer" in high
-    assert "0.80" in high
+def test_describe_split_marks_suspicious_direction():
+    # high straightlining is the suspicious direction
+    text, suspicious = _describe_split("straightlining_score", 0.94, went_left=False, is_nan=False)
+    assert suspicious is True
+    assert "same answer" in text
+    assert "94%" in text  # concrete value, not a raw threshold
+
+    text, suspicious = _describe_split("straightlining_score", 0.3, went_left=True, is_nan=False)
+    assert suspicious is False
+    assert "varied" in text
 
 
-def test_clause_nan_timing():
-    c = _clause("completion_time_ratio", 0.3, went_left=True, is_nan=True)
-    assert "no timing data" in c
+def test_describe_split_low_attention_is_suspicious():
+    text, suspicious = _describe_split(
+        "attention_check_pass_rate", 0.0, went_left=True, is_nan=False
+    )
+    assert suspicious is True
+    assert "0%" in text
+
+
+def test_describe_split_fast_timing_reports_seconds_per_question():
+    # ratio 0.125 on an 8s-per-question baseline is about 1s per question
+    text, suspicious = _describe_split(
+        "completion_time_ratio", 0.125, went_left=True, is_nan=False
+    )
+    assert suspicious is True
+    assert "1s per question" in text
+
+
+def test_describe_split_nan_timing_is_not_suspicious():
+    text, suspicious = _describe_split(
+        "completion_time_ratio", float("nan"), went_left=True, is_nan=True
+    )
+    assert "no timing data" in text
+    assert suspicious is False
+
+
+def test_describe_split_never_exposes_raw_feature_names():
+    # reasons are for administrators; internal feature names must not leak
+    for name in [
+        "completion_time_ratio", "straightlining_score", "response_variance",
+        "contradiction_score", "attention_check_pass_rate", "extreme_response_rate",
+    ]:
+        for went_left in (True, False):
+            text, _ = _describe_split(name, 0.5, went_left=went_left, is_nan=False)
+            assert name not in text
+            assert "<=" not in text and ">" not in text
 
 
 def test_describe_path_flagged_is_capitalized_sentence():
@@ -131,9 +167,62 @@ def test_predict_flagged_reason_nonempty_even_for_degenerate_tree():
     assert (out["flag_reason"] != "").all()  # invariant: flagged -> non-empty reason
 
 
-def test_clause_uses_ascii_operator():
-    high = _clause("straightlining_score", 0.8, went_left=False, is_nan=False)
-    low = _clause("straightlining_score", 0.8, went_left=True, is_nan=False)
-    assert ">" in high
-    assert "<=" in low
-    assert "≤" not in low  # no non-ASCII operator
+def test_reasons_are_ascii_only():
+    # reasons get written to locale-encoded files on Windows; keep them ASCII
+    df = _feature_df()
+    model = train(df, [0, 0, 1, 0, 1, 0])
+    for reason in predict(model, df)["flag_reason"]:
+        reason.encode("ascii")  # raises UnicodeEncodeError if not ASCII
+
+
+def test_every_flagged_respondent_gets_a_specific_reason():
+    """The product's core promise: no flag without an explanation.
+
+    Runs the full pipeline over several seeded surveys and asserts that every
+    single flagged respondent gets a concrete reason -- never blank, never a
+    vague catch-all.
+    """
+    import json
+    import tempfile
+    from pathlib import Path
+    from data.synthetic.generator import generate_survey_csv
+    from src.ingestion.normalize import apply_mapping
+    from src.features.extract import extract_features
+    from src.api.pipeline_service import _build_training_mapping
+
+    VAGUE = ["overall response pattern", "no single distinguishing rule"]
+    total_flagged = 0
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for seed in (11, 22, 33, 44):
+            out = Path(tmp) / f"s{seed}.csv"
+            generate_survey_csv(
+                n_respondents=120, n_questions=12, scale=(1, 5),
+                contamination_rate=0.3, seed=seed, output_path=str(out),
+            )
+            raw = pd.read_csv(out)
+            labels = pd.read_csv(Path(tmp) / f"s{seed}_labels.csv")
+            with open(Path(tmp) / f"s{seed}_pairs.json") as fh:
+                pairs_idx = json.load(fh)["pairs"]
+
+            mapping = _build_training_mapping(list(raw.columns))
+            respondents = apply_mapping(raw, mapping)
+            pair_keys = [(f"q{a + 1}", f"q{b + 1}") for a, b in pairs_idx]
+            features = extract_features(respondents, contradiction_pairs=pair_keys)
+
+            merged = features.merge(labels, on="respondent_id")
+            y = merged["is_careless"].astype(int).tolist()
+            feat = merged[["respondent_id"] + FEATURE_NAMES].reset_index(drop=True)
+
+            preds = predict(train(feat, y), feat)
+            flagged = preds[preds["reliability_score"] < 0.5]
+            total_flagged += len(flagged)
+
+            for _, row in flagged.iterrows():
+                reason = row["flag_reason"]
+                assert reason != "", f"{row['respondent_id']} flagged with no reason"
+                assert reason.endswith(".")
+                for vague in VAGUE:
+                    assert vague not in reason, f"vague reason: {reason}"
+
+    assert total_flagged > 50  # the surveys really were contaminated
