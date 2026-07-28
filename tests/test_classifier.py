@@ -14,17 +14,18 @@ def _feature_df(n=6):
         "contradiction_score": [0.0, 0.0, 0.0, 0.0, 1.0, 0.0][:n],
         "attention_check_pass_rate": [1.0, 1.0, 1.0, 1.0, 0.0, 1.0][:n],
         "extreme_response_rate": [0.3, 0.3, 0.2, 0.3, 0.9, 0.2][:n],
+        "behavior_shift_score": [0.0, 0.1, 0.0, 0.0, 0.2, 0.0][:n],
     }
     return pd.DataFrame(data)
 
 
 def test_feature_names_excludes_respondent_id():
     assert "respondent_id" not in FEATURE_NAMES
-    assert len(FEATURE_NAMES) == 6
+    assert len(FEATURE_NAMES) == 7
 
 
 def test_feature_matrix_shape():
-    assert _feature_matrix(_feature_df()).shape == (6, 6)
+    assert _feature_matrix(_feature_df()).shape == (6, 7)
 
 
 def test_feature_matrix_missing_column_raises():
@@ -226,3 +227,73 @@ def test_every_flagged_respondent_gets_a_specific_reason():
                     assert vague not in reason, f"vague reason: {reason}"
 
     assert total_flagged > 50  # the surveys really were contaminated
+
+
+def test_describe_split_behavior_shift_names_the_question():
+    text, suspicious = _describe_split(
+        "behavior_shift_score", 0.8, went_left=False, is_nan=False, shift_at=18
+    )
+    assert suspicious is True
+    assert "question 18" in text
+
+
+def test_describe_split_behavior_shift_without_position_still_reads_well():
+    text, suspicious = _describe_split(
+        "behavior_shift_score", 0.8, went_left=False, is_nan=False, shift_at=None
+    )
+    assert suspicious is True
+    assert "repetitive" in text
+    assert "None" not in text
+
+
+def test_behavior_shift_reason_appears_for_a_fatiguer_end_to_end():
+    """Fatiguers must be caught and explained by where their answers changed.
+
+    Averaged over several seeds rather than asserted on one, so this measures
+    the detector rather than a lucky draw.
+    """
+    import json
+    import tempfile
+    from pathlib import Path
+    from data.synthetic.generator import generate_survey_csv
+    from src.ingestion.normalize import apply_mapping
+    from src.features.extract import extract_features
+    from src.api.pipeline_service import _build_training_mapping
+
+    caught_rates = []
+    reasons_seen = []
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for seed in (8, 21, 42):
+            out = Path(tmp) / f"s{seed}.csv"
+            generate_survey_csv(
+                n_respondents=300, n_questions=20, scale=(1, 5),
+                contamination_rate=0.4, seed=seed, output_path=str(out),
+            )
+            raw = pd.read_csv(out)
+            labels = pd.read_csv(Path(tmp) / f"s{seed}_labels.csv")
+            with open(Path(tmp) / f"s{seed}_pairs.json") as fh:
+                pairs_idx = json.load(fh)["pairs"]
+
+            mapping = _build_training_mapping(list(raw.columns))
+            respondents = apply_mapping(raw, mapping)
+            pair_keys = [(f"q{a + 1}", f"q{b + 1}") for a, b in pairs_idx]
+            features = extract_features(respondents, contradiction_pairs=pair_keys)
+
+            merged = features.merge(labels, on="respondent_id")
+            y = merged["is_careless"].astype(int).tolist()
+            feat = merged[
+                ["respondent_id"] + FEATURE_NAMES + ["behavior_shift_at"]
+            ].reset_index(drop=True)
+
+            preds = predict(train(feat, y), feat).merge(labels, on="respondent_id")
+            fatiguers = preds[preds["archetype"] == "fatiguer"]
+            assert len(fatiguers) > 10
+            caught_rates.append((fatiguers["reliability_score"] < 0.5).mean())
+            reasons_seen.append(" ".join(fatiguers["flag_reason"].tolist()))
+
+    mean_caught = sum(caught_rates) / len(caught_rates)
+    assert mean_caught > 0.7, f"only caught {mean_caught:.0%} of fatiguers on average"
+
+    # at least some explanations should name where the behaviour changed
+    assert any("from question" in r for r in reasons_seen)

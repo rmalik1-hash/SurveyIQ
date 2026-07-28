@@ -54,6 +54,7 @@ def _tiny_model():
         "contradiction_score": [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
         "attention_check_pass_rate": [1.0, 1.0, 1.0, 1.0, 0.0, 1.0],
         "extreme_response_rate": [0.3, 0.3, 0.2, 0.3, 0.9, 0.2],
+        "behavior_shift_score": [0.0, 0.1, 0.0, 0.0, 0.2, 0.0],
     })
     return train(df, [0, 0, 1, 0, 1, 0])
 

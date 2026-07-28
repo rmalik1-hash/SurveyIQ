@@ -45,10 +45,12 @@ def test_assign_archetypes_honors_contamination_rate():
     assert len(archetypes) == 100
     n_careless = sum(1 for a in archetypes if a != "reliable")
     assert n_careless == 25
-    # 25 careless split across 4 archetypes -> [7, 6, 6, 6] (remainder to earlier groups)
+    # careless respondents are split as evenly as possible across the archetypes,
+    # with any remainder going to the earlier ones. Derived rather than hardcoded
+    # so this keeps holding as archetypes are added.
     counts = [archetypes.count(archetype) for archetype in CARELESS_ARCHETYPES]
     assert sum(counts) == 25
-    assert all(c in (6, 7) for c in counts)
+    assert counts == _even_split(25, len(CARELESS_ARCHETYPES))
 
 
 def test_attention_check_value_matches_target_for_non_random_archetypes():

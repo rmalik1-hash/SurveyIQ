@@ -11,11 +11,14 @@ from data.synthetic.archetypes import (
     simulate_speeder,
     simulate_random_responder,
     simulate_contradictor,
+    simulate_fatiguer,
 )
 from data.synthetic.contradiction_pairs import get_contradiction_pairs
 from data.synthetic.template import question_header, attention_check_header, render_messy_csv
 
-CARELESS_ARCHETYPES = ["straightliner", "speeder", "random_responder", "contradictor"]
+CARELESS_ARCHETYPES = [
+    "straightliner", "speeder", "random_responder", "contradictor", "fatiguer",
+]
 
 ARCHETYPE_SIMULATORS = {
     "reliable": simulate_reliable,
@@ -23,6 +26,7 @@ ARCHETYPE_SIMULATORS = {
     "speeder": simulate_speeder,
     "random_responder": simulate_random_responder,
     "contradictor": simulate_contradictor,
+    "fatiguer": simulate_fatiguer,
 }
 
 GRADE_LEVELS = ["9", "10", "11", "12"]

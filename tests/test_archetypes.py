@@ -88,3 +88,53 @@ def test_contradictor_answers_within_scale():
         n_questions=4, scale=(1, 5), contradiction_pairs=[(0, 1)], rng=rng
     )
     assert all(1 <= a <= 5 for a in result["answers"])
+
+
+from src.features.extract import straightlining_score
+from data.synthetic.archetypes import simulate_fatiguer
+
+
+def test_fatiguer_answers_uniformly_only_after_the_switch():
+    rng = np.random.default_rng(9)
+    result = simulate_fatiguer(n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng)
+    answers = result["answers"]
+    assert len(answers) == 20
+    # the tail collapses to a single repeated value
+    tail = answers[-6:]
+    assert len(set(tail)) == 1
+    # the opening section does not
+    assert len(set(answers[:6])) > 1
+
+
+def test_fatiguer_respects_pairs_that_fall_before_the_switch():
+    rng = np.random.default_rng(9)
+    result = simulate_fatiguer(
+        n_questions=20, scale=(1, 5), contradiction_pairs=[(0, 1), (2, 3)], rng=rng
+    )
+    answers = result["answers"]
+    # early pairs stay reverse-coded, so contradiction_score will not catch this archetype
+    assert answers[0] + answers[1] == 6
+    assert answers[2] + answers[3] == 6
+
+
+def test_fatiguer_timing_is_plausible_so_speed_does_not_give_it_away():
+    rng = np.random.default_rng(9)
+    result = simulate_fatiguer(n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng)
+    expected = 20 * 8
+    assert result["duration_seconds"] > 0.5 * expected
+
+
+def test_fatiguer_is_invisible_to_global_straightlining():
+    """The point of this archetype: existing features cannot see it.
+
+    Reliable respondents already average ~0.55 global straightlining, so a
+    fatiguer sitting in the same range is genuinely indistinguishable without a
+    change-point detector.
+    """
+    rng = np.random.default_rng(3)
+    scores = []
+    for _ in range(30):
+        result = simulate_fatiguer(n_questions=20, scale=(1, 5), contradiction_pairs=[], rng=rng)
+        responses = {f"q{i + 1}": v for i, v in enumerate(result["answers"])}
+        scores.append(straightlining_score(responses))
+    assert np.mean(scores) < 0.75

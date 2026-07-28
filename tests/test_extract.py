@@ -159,7 +159,7 @@ def test_extract_features_shape_and_columns():
     assert list(df.columns) == [
         "respondent_id", "completion_time_ratio", "straightlining_score",
         "response_variance", "contradiction_score", "attention_check_pass_rate",
-        "extreme_response_rate",
+        "extreme_response_rate", "behavior_shift_score", "behavior_shift_at",
     ]
     assert list(df["respondent_id"]) == ["R1", "R2"]
     assert len(df) == 2
@@ -207,7 +207,7 @@ def test_extract_features_empty_list_returns_empty_framed_columns():
     assert list(df.columns) == [
         "respondent_id", "completion_time_ratio", "straightlining_score",
         "response_variance", "contradiction_score", "attention_check_pass_rate",
-        "extreme_response_rate",
+        "extreme_response_rate", "behavior_shift_score", "behavior_shift_at",
     ]
 
 
@@ -233,3 +233,60 @@ def test_pair_contradicts_missing_key_raises():
     from src.features.extract import pair_contradicts
     with pytest.raises(ValueError):
         pair_contradicts({"q1": 1}, 1, 5, "q1", "q9")
+
+
+def _responses(values):
+    return {f"q{i + 1}": v for i, v in enumerate(values)}
+
+
+def test_detect_behavior_shift_finds_where_answers_collapse():
+    from src.features.extract import detect_behavior_shift
+    score, position = detect_behavior_shift(_responses([1, 2, 3, 4, 5, 5, 5, 5]))
+    assert score > 0.7
+    assert position == 5  # 1-based question where the repetition starts
+
+
+def test_detect_behavior_shift_is_zero_for_a_varied_respondent():
+    from src.features.extract import detect_behavior_shift
+    score, _ = detect_behavior_shift(_responses([4, 5, 3, 4, 2, 1, 2, 3, 5, 4, 4, 3]))
+    assert score < 0.4
+
+
+def test_detect_behavior_shift_is_zero_for_a_pure_straightliner():
+    """A full straightliner never *changes* -- straightlining_score catches them.
+
+    The two features are complementary rather than redundant.
+    """
+    from src.features.extract import detect_behavior_shift
+    score, _ = detect_behavior_shift(_responses([3] * 12))
+    assert score == 0.0
+
+
+def test_detect_behavior_shift_ignores_becoming_more_varied():
+    # starting repetitive and warming up is not careless responding
+    from src.features.extract import detect_behavior_shift
+    score, _ = detect_behavior_shift(_responses([5, 5, 5, 5, 1, 2, 3, 4]))
+    assert score == 0.0
+
+
+def test_detect_behavior_shift_needs_enough_questions():
+    from src.features.extract import detect_behavior_shift
+    score, position = detect_behavior_shift(_responses([1, 2, 5, 5]))
+    assert score == 0.0
+    assert position is None
+
+
+def test_detect_behavior_shift_separates_fatiguer_from_reliable():
+    """The whole point: this must see what the other six features cannot."""
+    import numpy as np
+    from data.synthetic.archetypes import simulate_fatiguer, simulate_reliable
+    from src.features.extract import detect_behavior_shift
+
+    rng = np.random.default_rng(4)
+    fatiguer, reliable = [], []
+    for _ in range(40):
+        f = simulate_fatiguer(20, (1, 5), [], rng)["answers"]
+        r = simulate_reliable(20, (1, 5), [], rng)["answers"]
+        fatiguer.append(detect_behavior_shift(_responses(f))[0])
+        reliable.append(detect_behavior_shift(_responses(r))[0])
+    assert np.mean(fatiguer) > np.mean(reliable) + 0.25
