@@ -61,8 +61,9 @@ export default function MappingStep({
         </label>
         <p className="hint" style={{ margin: 0 }}>
           Name it and each analysis is recorded, so you can track whether quality
-          improves over time. Only the date, name, response count and quality score are
-          stored &mdash; never answers or respondent details. Leave blank to record nothing.
+          improves over time. Only the date, name, response count, quality score and average
+          answer per question are stored &mdash; never individual answers or respondent
+          details. Leave blank to record nothing.
         </p>
       </div>
 

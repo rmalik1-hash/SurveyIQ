@@ -26,6 +26,7 @@ ALLOWED_FIELDS = {
     "reliable",
     "overall_quality_pct",
     "mean_response",
+    "question_means",
 }
 
 _NUMERIC_FIELDS = [
@@ -61,20 +62,36 @@ def _write(path, rows):
         raise
 
 
-def record_run(summary, survey_label, path=None):
-    """Append one run's aggregate totals. Returns the row that was stored."""
+def record_run(summary, survey_label, path=None, question_means=None, recorded_at=None):
+    """Append one run's aggregate totals. Returns the row that was stored.
+
+    `question_means` carries the average answer per question so trends can show
+    opinion moving, not just how many responses were flagged. It is a mapping of
+    question text to a number -- no respondent is identifiable from an average.
+
+    `recorded_at` lets a caller supply the date the survey was actually run,
+    which is rarely the day it gets uploaded.
+    """
     label = (survey_label or "").strip()
     if not label:
         raise ValueError("survey_label is required so trends can be grouped")
 
     path = Path(path or DEFAULT_HISTORY_PATH)
     row = {
-        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "recorded_at": (recorded_at or datetime.now(timezone.utc)
+                        .isoformat(timespec="seconds")),
         "survey_label": label,
     }
     for field in _NUMERIC_FIELDS:
         value = summary.get(field)
         row[field] = float(value) if isinstance(value, float) else int(value or 0)
+
+    # Question averages only -- keys are question text, values are numbers.
+    row["question_means"] = {
+        str(label): round(float(value), 3)
+        for label, value in (question_means or {}).items()
+        if isinstance(value, (int, float))
+    }
 
     assert set(row) == ALLOWED_FIELDS, "history row must stay aggregate-only"
 

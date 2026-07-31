@@ -65,6 +65,18 @@ def _assign_archetypes(n_respondents: int, contamination_rate: float, rng) -> li
     return archetypes
 
 
+def _apply_question_shifts(answers, shifts, pairs, scale_min, scale_max):
+    """Move answers up or down the scale, leaving reverse-coded pairs untouched."""
+    paired = {index for pair in pairs for index in pair}
+    shifted = list(answers)
+    for index, shift in enumerate(shifts):
+        if index in paired or not shift:
+            continue
+        moved = round(shifted[index] + shift)
+        shifted[index] = int(max(scale_min, min(scale_max, moved)))
+    return shifted
+
+
 def _attention_check_value(archetype: str, scale_min: int, scale_max: int, rng) -> int:
     if archetype == "random_responder":
         return int(rng.integers(scale_min, scale_max + 1))
@@ -78,8 +90,20 @@ def generate_survey_csv(
     contamination_rate=0.25,
     seed=42,
     output_path="data/synthetic/survey_001.csv",
+    question_shifts=None,
 ):
+    """Write a synthetic survey plus its ground-truth sidecars.
+
+    `question_shifts` nudges individual questions up or down the scale for
+    genuine respondents, so a series of surveys can show opinion moving over
+    time -- "students liked this class more each term" -- rather than every
+    survey looking identical. Questions in a contradiction pair are left alone,
+    since shifting one half of a reverse-coded pair would make honest
+    respondents look like they were contradicting themselves.
+    """
     _validate_params(n_respondents, n_questions, scale, contamination_rate)
+    if question_shifts is not None and len(question_shifts) != n_questions:
+        raise ValueError("question_shifts must have one entry per question")
 
     rng = np.random.default_rng(seed)
     scale_min, scale_max = scale
@@ -91,6 +115,13 @@ def generate_survey_csv(
     for i, archetype in enumerate(archetypes):
         respondent_id = f"R{i + 1:04d}"
         sim = ARCHETYPE_SIMULATORS[archetype](n_questions, scale, pairs, rng)
+
+        # Opinion drift only applies to genuine respondents: a straightliner is
+        # not expressing a view that could shift between terms.
+        if question_shifts is not None and archetype == "reliable":
+            sim["answers"] = _apply_question_shifts(
+                sim["answers"], question_shifts, pairs, scale_min, scale_max
+            )
 
         start_time = BASE_START_TIME + timedelta(minutes=i)
         end_time = start_time + timedelta(seconds=sim["duration_seconds"])

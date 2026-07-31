@@ -7,8 +7,8 @@ export default function Footer() {
       </p>
       <p className="footer-note">
         Uploaded responses are analyzed in memory and discarded. If you name a survey,
-        only its date, response count and quality score are kept for trend tracking —
-        never answers or respondent details.
+        only its date, response count, quality score and per-question averages are kept
+        for trend tracking — never individual answers or respondent details.
       </p>
     </footer>
   );

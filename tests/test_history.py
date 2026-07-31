@@ -95,3 +95,32 @@ def test_a_corrupt_store_does_not_take_the_api_down(store):
     # and recording recovers rather than failing
     record_run(_summary(), survey_label="Wellbeing", path=store)
     assert len(list_runs(path=store)) == 1
+
+
+def test_question_means_are_stored_for_opinion_trends(store):
+    row = record_run(
+        _summary(), survey_label="Wellbeing", path=store,
+        question_means={"I like this class [Q1]": 3.2, "I feel safe [Q2]": 4.1},
+    )
+    assert row["question_means"]["I like this class [Q1]"] == 3.2
+    stored = list_runs(path=store)[0]
+    assert stored["question_means"]["I feel safe [Q2]"] == 4.1
+
+
+def test_question_means_reject_non_numeric_values(store):
+    """Only averages belong here -- never a stray answer or identifier."""
+    record_run(
+        _summary(), survey_label="Wellbeing", path=store,
+        question_means={"Q1": 3.2, "Q2": "R0001", "Q3": {"nested": "data"}},
+    )
+    stored = list_runs(path=store)[0]["question_means"]
+    assert stored == {"Q1": 3.2}
+
+
+def test_a_survey_date_can_be_supplied(store):
+    """Surveys are usually analysed some time after they were actually run."""
+    row = record_run(
+        _summary(), survey_label="Wellbeing", path=store,
+        recorded_at="2026-03-01T00:00:00+00:00",
+    )
+    assert row["recorded_at"] == "2026-03-01T00:00:00+00:00"

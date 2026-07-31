@@ -61,6 +61,6 @@ describe("Footer", () => {
     // Responses are discarded, but named runs keep aggregate totals for trends --
     // the footer must describe what actually happens, not an older simpler claim.
     expect(screen.getByText(/analyzed in memory and discarded/i)).toBeInTheDocument();
-    expect(screen.getByText(/never answers or respondent details/i)).toBeInTheDocument();
+    expect(screen.getByText(/never individual answers or respondent details/i)).toBeInTheDocument();
   });
 });

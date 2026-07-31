@@ -59,6 +59,7 @@ async def analyze_endpoint(
     file: UploadFile = File(...),
     mapping: str = Form(...),
     survey_label: str = Form(""),
+    survey_date: str = Form(""),
 ):
     df = _read_upload(await file.read(), file.filename)
     try:
@@ -74,7 +75,16 @@ async def analyze_endpoint(
     # against, so nothing is written. Only aggregate totals are ever stored.
     if survey_label.strip():
         try:
-            history.record_run(result["summary"], survey_label)
+            history.record_run(
+                result["summary"],
+                survey_label,
+                question_means={
+                    q["label"]: q["mean"]
+                    for q in result["question_summary"]
+                    if q["mean"] is not None
+                },
+                recorded_at=survey_date.strip() or None,
+            )
         except OSError:
             # Trend tracking is a convenience; never fail an analysis over it.
             pass

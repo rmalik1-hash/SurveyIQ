@@ -200,3 +200,55 @@ def test_generate_survey_csv_honors_contamination_rate_across_sizes(
     labels_df = pd.read_csv(output_path.with_name("survey_001_labels.csv"))
     assert len(labels_df) == n_respondents
     assert int(labels_df["is_careless"].sum()) == expected_careless
+
+
+def test_question_shifts_move_a_question_without_touching_others(tmp_path):
+    """Successive surveys need to be able to drift, so trends have something to show."""
+    base = tmp_path / "base.csv"
+    generate_survey_csv(
+        n_respondents=200, n_questions=10, scale=(1, 5), contamination_rate=0.0,
+        seed=3, output_path=str(base),
+    )
+    shifted = tmp_path / "shifted.csv"
+    generate_survey_csv(
+        n_respondents=200, n_questions=10, scale=(1, 5), contamination_rate=0.0,
+        seed=3, output_path=str(shifted),
+        question_shifts=[0, 0, 0, 0, 1.5, 0, 0, 0, 0, 0],
+    )
+
+    base_df = pd.read_csv(base)
+    shifted_df = pd.read_csv(shifted)
+    q_cols = [c for c in base_df.columns if "[Q" in c]
+
+    # question 5 should move up clearly
+    assert shifted_df[q_cols[4]].mean() > base_df[q_cols[4]].mean() + 0.7
+    # a question with no shift should stay put
+    assert abs(shifted_df[q_cols[7]].mean() - base_df[q_cols[7]].mean()) < 0.2
+
+
+def test_question_shifts_leave_contradiction_pairs_intact(tmp_path):
+    """Shifting a paired question would fake contradictions in honest respondents."""
+    out = tmp_path / "s.csv"
+    generate_survey_csv(
+        n_respondents=100, n_questions=10, scale=(1, 5), contamination_rate=0.0,
+        seed=4, output_path=str(out),
+        question_shifts=[2] * 10,  # try to shift everything, including the pairs
+    )
+    df = pd.read_csv(out)
+    q_cols = [c for c in df.columns if "[Q" in c]
+    with open(tmp_path / "s_pairs.json") as fh:
+        pairs = json.load(fh)["pairs"]
+
+    assert pairs, "the survey should define at least one reverse-coded pair"
+    for a, b in pairs:
+        # every genuine respondent must still mirror on each configured pair
+        assert (df[q_cols[a]] + df[q_cols[b]] == 6).all()
+
+
+def test_question_shifts_are_optional(tmp_path):
+    out = tmp_path / "s.csv"
+    generate_survey_csv(
+        n_respondents=30, n_questions=8, scale=(1, 5), contamination_rate=0.25,
+        seed=5, output_path=str(out),
+    )
+    assert len(pd.read_csv(out)) == 30
