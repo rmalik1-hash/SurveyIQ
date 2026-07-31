@@ -55,6 +55,9 @@ _HIGH_IS_SUSPICIOUS = {
 IMPLAUSIBLY_FAST_RATIO = 0.5  # about 4s per question or less
 BRISK_RATIO = 0.8             # about 6s per question or less
 
+# Normalized spread at or below this means the answers barely moved at all.
+NO_VARIATION_CEILING = 0.08
+
 
 def _pct(value):
     return f"{round(value * 100)}%"
@@ -93,6 +96,11 @@ def _describe_split(feature_name, value, went_left, is_nan, shift_at=None):
         return "varied their answers across the survey", False
 
     if feature_name == "response_variance":
+        # Both ends of this feature are suspicious, which a single direction
+        # cannot express: wild swings mean random answering, while almost no
+        # variation at all means the same answer went down the page.
+        if value <= NO_VARIATION_CEILING:
+            return "gave virtually the same answer to every question", True
         if suspicious:
             return "answers swung erratically with no consistent pattern", True
         return "answers stayed within a narrow range", False

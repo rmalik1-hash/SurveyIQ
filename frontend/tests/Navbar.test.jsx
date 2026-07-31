@@ -55,9 +55,12 @@ describe("SignalsSection", () => {
 });
 
 describe("Footer", () => {
-  it("credits the team and states the privacy posture", () => {
+  it("credits the team and states the privacy posture accurately", () => {
     render(<Footer />);
     expect(screen.getByText(/Rayan Malik/)).toBeInTheDocument();
-    expect(screen.getByText(/nothing is stored on the server/i)).toBeInTheDocument();
+    // Responses are discarded, but named runs keep aggregate totals for trends --
+    // the footer must describe what actually happens, not an older simpler claim.
+    expect(screen.getByText(/analyzed in memory and discarded/i)).toBeInTheDocument();
+    expect(screen.getByText(/never answers or respondent details/i)).toBeInTheDocument();
   });
 });

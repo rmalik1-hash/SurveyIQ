@@ -12,7 +12,10 @@ function guessRole(column) {
   return "demographic";
 }
 
-export default function MappingStep({ columns, onAnalyze, onBack, busy, error }) {
+export default function MappingStep({
+  columns, onAnalyze, onBack, busy, error,
+  surveyLabel, onSurveyLabelChange,
+}) {
   const [roles, setRoles] = useState(() =>
     Object.fromEntries(columns.map((c) => [c, guessRole(c)]))
   );
@@ -44,6 +47,24 @@ export default function MappingStep({ columns, onAnalyze, onBack, busy, error })
       <p className="hint">
         Tell SurveyIQ what each column is. We guessed where we could &mdash; correct anything wrong.
       </p>
+
+      <div className="label-row">
+        <label>
+          Survey name <span className="optional">(optional)</span>
+          <input
+            type="text"
+            placeholder="e.g. Autumn wellbeing survey"
+            aria-label="Survey name for tracking quality over time"
+            value={surveyLabel}
+            onChange={(e) => onSurveyLabelChange(e.target.value)}
+          />
+        </label>
+        <p className="hint" style={{ margin: 0 }}>
+          Name it and each analysis is recorded, so you can track whether quality
+          improves over time. Only the date, name, response count and quality score are
+          stored &mdash; never answers or respondent details. Leave blank to record nothing.
+        </p>
+      </div>
 
       <div className="scale-row">
         <label>

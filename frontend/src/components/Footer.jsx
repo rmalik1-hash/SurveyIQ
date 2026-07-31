@@ -6,7 +6,9 @@ export default function Footer() {
         IMSA · SAIL AI Innovation Fellowship
       </p>
       <p className="footer-note">
-        Uploaded files are analyzed in memory and discarded — nothing is stored on the server.
+        Uploaded responses are analyzed in memory and discarded. If you name a survey,
+        only its date, response count and quality score are kept for trend tracking —
+        never answers or respondent details.
       </p>
     </footer>
   );

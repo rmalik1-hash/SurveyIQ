@@ -49,8 +49,12 @@ npm test
 3. **Results** — quality gauge, flagged respondents with their reasons, the most
    problematic questions, and a download (marked or cleaned).
 
-Nothing is stored on the server: the API analyzes the upload in memory and
-discards it.
+Responses are never stored: the API analyzes the upload in memory and discards it.
+If you give a survey a name on the mapping step, that run's aggregate totals
+(date, name, response count, quality score) are recorded so the dashboard can show
+quality trends across analyses. No answers, respondent IDs or demographics are
+ever written to disk. History lives in `data/history.json` and can be cleared from
+the results page.
 
 ## Layout
 

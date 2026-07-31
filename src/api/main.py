@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from data.synthetic.generator import generate_survey_csv
+from src.api import history
 from src.api.pipeline_service import train_startup_model, analyze
 
 
@@ -54,16 +55,40 @@ async def columns(file: UploadFile = File(...)):
 
 
 @app.post("/analyze")
-async def analyze_endpoint(file: UploadFile = File(...), mapping: str = Form(...)):
+async def analyze_endpoint(
+    file: UploadFile = File(...),
+    mapping: str = Form(...),
+    survey_label: str = Form(""),
+):
     df = _read_upload(await file.read(), file.filename)
     try:
         mapping_obj = json.loads(mapping)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail=f"invalid mapping JSON: {exc}")
     try:
-        return analyze(df, mapping_obj, app.state.model)
+        result = analyze(df, mapping_obj, app.state.model)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    # Recording is opt-in: without a survey label there is nothing to trend
+    # against, so nothing is written. Only aggregate totals are ever stored.
+    if survey_label.strip():
+        try:
+            history.record_run(result["summary"], survey_label)
+        except OSError:
+            # Trend tracking is a convenience; never fail an analysis over it.
+            pass
+    return result
+
+
+@app.get("/history")
+def history_endpoint(survey_label: str = ""):
+    return {"runs": history.list_runs(survey_label or None)}
+
+
+@app.delete("/history")
+def clear_history_endpoint():
+    return {"removed": history.clear_runs()}
 
 
 def _cleanup_generated(path):

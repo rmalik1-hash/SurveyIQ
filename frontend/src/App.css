@@ -173,3 +173,32 @@ tbody td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: m
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-top: 14px; flex-wrap: wrap;
 }
+
+/* ── Survey name (opt-in trend tracking) ── */
+.label-row { margin-bottom: 16px; }
+.label-row label { display: flex; flex-direction: column; font-size: 13px; gap: 4px; max-width: 420px; }
+.label-row input[type="text"] {
+  font: inherit; padding: 7px 9px; border: 1px solid #c9c8c1; border-radius: 8px; background: #fff;
+}
+.label-row .hint { margin-top: 6px; max-width: 640px; }
+.optional { color: var(--ink-3); font-weight: 400; }
+
+/* ── Question explorer / history controls ── */
+.explorer-controls {
+  display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px;
+}
+.explorer-controls label { display: flex; flex-direction: column; font-size: 13px; gap: 4px; }
+.explorer-controls select { max-width: 460px; }
+
+.health {
+  border-radius: 8px; padding: 10px 13px; font-size: 13px; line-height: 1.55;
+  margin-bottom: 12px; border: 1px solid transparent;
+}
+.health-ok { background: #e9f5ef; border-color: #cfe8dc; color: #17513f; }
+.health-watch { background: #fdf3e0; border-color: #f0e0bd; color: #6d4310; }
+.health-concern { background: #fceceb; border-color: #f2d5d3; color: #8a2a26; }
+
+.question-facts {
+  display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px;
+  color: var(--ink-2); margin-bottom: 14px;
+}

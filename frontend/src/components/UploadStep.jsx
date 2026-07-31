@@ -7,8 +7,8 @@ export default function UploadStep({ onFileReady, onTrySample, busy, error }) {
     <section className="card upload-card">
       <h2>Upload a survey export</h2>
       <p className="hint">
-        Choose the CSV or Excel file your survey tool produced. Nothing is stored on the
-        server &mdash; it is analyzed and discarded.
+        Choose the CSV or Excel file your survey tool produced. Responses are analyzed in
+        memory and discarded &mdash; they are never saved.
       </p>
 
       <input

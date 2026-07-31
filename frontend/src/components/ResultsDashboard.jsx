@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Plotly from "plotly.js-dist-min";
 import { buildCleanedRows, toCsv, downloadCsv, FLAG_THRESHOLD } from "../lib/cleanedCsv.js";
 import ChartBoundary from "./ChartBoundary.jsx";
+import QuestionExplorer from "./QuestionExplorer.jsx";
+import HistoryTrend from "./HistoryTrend.jsx";
 
 const PLOT_CONFIG = { displayModeBar: false, responsive: true };
 
@@ -77,8 +79,16 @@ function QuestionChart({ stats }) {
   return <div ref={ref} />;
 }
 
-export default function ResultsDashboard({ result, originalRows, idColumn, fileName, onStartOver }) {
-  const { summary, respondents, question_stats: questionStats } = result;
+export default function ResultsDashboard({
+  result, originalRows, idColumn, fileName, onStartOver,
+  history = [], surveyLabel = "", onClearHistory, historyBusy,
+}) {
+  const {
+    summary,
+    respondents,
+    question_stats: questionStats,
+    question_summary: questionSummary = [],
+  } = result;
   const flagged = respondents.filter((r) => r.reliability_score < FLAG_THRESHOLD);
   const [showAll, setShowAll] = useState(false);
   const PREVIEW_COUNT = 10;
@@ -161,6 +171,28 @@ export default function ResultsDashboard({ result, originalRows, idColumn, fileN
           </ChartBoundary>
         </div>
       )}
+
+      <div className="card">
+        <h2>Question by question</h2>
+        <p className="hint">
+          Pick a question to see how respondents answered it, and whether careless
+          responses were distorting the result.
+        </p>
+        <QuestionExplorer questions={questionSummary} />
+      </div>
+
+      <div className="card">
+        <h2>Quality over time</h2>
+        <p className="hint">
+          How this survey&rsquo;s data quality has changed across past analyses.
+        </p>
+        <HistoryTrend
+          runs={history}
+          surveyLabel={surveyLabel}
+          onClear={onClearHistory}
+          busy={historyBusy}
+        />
+      </div>
 
       <div className="card">
         <h2>Download results</h2>

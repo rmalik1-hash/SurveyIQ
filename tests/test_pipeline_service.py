@@ -156,3 +156,121 @@ def test_analyze_response_includes_question_stats():
     assert "question_stats" in result
     stats = {s["label"]: s["affected"] for s in result["question_stats"]}
     assert stats["Q1 / Q2"] == 1  # only R2 contradicts
+
+
+def _summary_raw():
+    return pd.DataFrame({
+        "Response ID": ["R1", "R2", "R3", "R4"],
+        "Q1": [1, 1, 5, 5],
+        "Q2": [3, 3, 3, 3],
+        "Q3": [2, 4, 2, 4],
+        "Q4": [5, 5, 5, 1],
+    })
+
+
+def _summary_mapping():
+    return {
+        "columns": {
+            "Response ID": "respondent_id", "Q1": "question", "Q2": "question",
+            "Q3": "question", "Q4": "question",
+        },
+        "scale": [1, 5],
+    }
+
+
+def test_question_summary_counts_each_scale_point():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    respondents = apply_mapping(_summary_raw(), _summary_mapping())
+    summary = _question_summary(respondents, _summary_mapping(), flagged_ids=set())
+    by_label = {q["label"]: q for q in summary}
+
+    # Q1: two 1s and two 5s
+    assert by_label["Q1"]["counts"] == {"1": 2, "2": 0, "3": 0, "4": 0, "5": 2}
+    # Q2: everyone answered 3
+    assert by_label["Q2"]["counts"] == {"1": 0, "2": 0, "3": 4, "4": 0, "5": 0}
+
+
+def test_question_summary_reports_position_and_mean():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    respondents = apply_mapping(_summary_raw(), _summary_mapping())
+    summary = _question_summary(respondents, _summary_mapping(), flagged_ids=set())
+    assert [q["position"] for q in summary] == [1, 2, 3, 4]
+    by_label = {q["label"]: q for q in summary}
+    assert by_label["Q1"]["mean"] == 3.0       # (1+1+5+5)/4
+    assert by_label["Q2"]["mean"] == 3.0
+    assert by_label["Q3"]["mean"] == 3.0
+
+
+def test_question_summary_separates_trustworthy_respondents():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    respondents = apply_mapping(_summary_raw(), _summary_mapping())
+    # treat R3 and R4 as flagged
+    summary = _question_summary(respondents, _summary_mapping(), flagged_ids={"R3", "R4"})
+    by_label = {q["label"]: q for q in summary}
+    # only R1 and R2 count as trustworthy, both answered 1 on Q1
+    assert by_label["Q1"]["counts_trustworthy"] == {"1": 2, "2": 0, "3": 0, "4": 0, "5": 0}
+
+
+def test_question_summary_flags_a_no_variation_question():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    respondents = apply_mapping(_summary_raw(), _summary_mapping())
+    summary = _question_summary(respondents, _summary_mapping(), flagged_ids=set())
+    q2 = next(q for q in summary if q["label"] == "Q2")
+    # every respondent gave the same answer -- worth telling an administrator
+    assert q2["concern"]
+    assert "same answer" in q2["concern"].lower()
+
+
+def test_analyze_includes_question_summary():
+    result = analyze(_summary_raw(), _summary_mapping(), _tiny_model())
+    assert "question_summary" in result
+    assert len(result["question_summary"]) == 4
+    assert set(result["question_summary"][0]).issuperset(
+        {"label", "position", "counts", "counts_trustworthy", "mean", "concern"}
+    )
+
+
+def test_question_summary_reports_mean_median_and_mode():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    raw = pd.DataFrame({
+        "Response ID": ["R1", "R2", "R3", "R4", "R5"],
+        "Q1": [1, 2, 2, 2, 5],   # mean 2.4, median 2, mode 2
+        "Q2": [1, 2, 3, 4, 5],   # mean 3, median 3, mode 1 (all tie -> lowest)
+    })
+    mapping = {
+        "columns": {"Response ID": "respondent_id", "Q1": "question", "Q2": "question"},
+        "scale": [1, 5],
+    }
+    summary = _question_summary(apply_mapping(raw, mapping), mapping, flagged_ids=set())
+    by_label = {q["label"]: q for q in summary}
+
+    assert by_label["Q1"]["mean"] == 2.4
+    assert by_label["Q1"]["median"] == 2
+    assert by_label["Q1"]["mode"] == 2
+
+    assert by_label["Q2"]["mean"] == 3.0
+    assert by_label["Q2"]["median"] == 3
+    assert by_label["Q2"]["mode"] == 1  # every value ties, so the lowest wins
+
+
+def test_question_summary_median_handles_an_even_count():
+    from src.api.pipeline_service import _question_summary
+    from src.ingestion.normalize import apply_mapping
+    raw = pd.DataFrame({
+        "Response ID": ["R1", "R2", "R3", "R4"],
+        "Q1": [1, 2, 4, 5],  # median is 3.0, the midpoint of 2 and 4
+    })
+    mapping = {"columns": {"Response ID": "respondent_id", "Q1": "question"}, "scale": [1, 5]}
+    summary = _question_summary(apply_mapping(raw, mapping), mapping, flagged_ids=set())
+    assert summary[0]["median"] == 3.0
+
+
+def test_analyze_summary_carries_a_mean_response_for_trend_tracking():
+    result = analyze(_summary_raw(), _summary_mapping(), _tiny_model())
+    assert "mean_response" in result["summary"]
+    assert 1 <= result["summary"]["mean_response"] <= 5

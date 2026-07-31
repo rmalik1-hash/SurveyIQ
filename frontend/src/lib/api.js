@@ -35,11 +35,26 @@ export async function generateSampleSurvey({
   return new File([blob], "synthetic_survey.csv", { type: "text/csv" });
 }
 
-export async function analyzeSurvey(file, mapping) {
+export async function analyzeSurvey(file, mapping, surveyLabel = "") {
   const form = new FormData();
   form.append("file", file);
   form.append("mapping", JSON.stringify(mapping));
+  // Only sent when the user opted into trend tracking by naming the survey.
+  if (surveyLabel) form.append("survey_label", surveyLabel);
   const res = await fetch(`${BASE}/analyze`, { method: "POST", body: form });
   if (!res.ok) throw new Error(await errorMessage(res));
   return await res.json();
+}
+
+export async function fetchHistory(surveyLabel = "") {
+  const query = surveyLabel ? `?survey_label=${encodeURIComponent(surveyLabel)}` : "";
+  const res = await fetch(`${BASE}/history${query}`);
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()).runs;
+}
+
+export async function clearHistory() {
+  const res = await fetch(`${BASE}/history`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()).removed;
 }

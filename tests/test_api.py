@@ -150,3 +150,82 @@ def test_analyze_accepts_xlsx_upload(client, tmp_path_factory):
     )
     assert r.status_code == 200
     assert r.json()["summary"]["total"] == len(df)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_history(tmp_path, monkeypatch):
+    """Keep every test's history in its own file, never the real store."""
+    from src.api import history
+    monkeypatch.setattr(history, "DEFAULT_HISTORY_PATH", tmp_path / "history.json")
+
+
+def test_analyze_without_a_label_records_nothing(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    mapping = _build_training_mapping(list(df.columns))
+    client.post(
+        "/analyze",
+        files={"file": ("s.csv", data, "text/csv")},
+        data={"mapping": json.dumps(mapping)},
+    )
+    assert client.get("/history").json()["runs"] == []
+
+
+def test_analyze_with_a_label_records_one_run(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    mapping = _build_training_mapping(list(df.columns))
+    r = client.post(
+        "/analyze",
+        files={"file": ("s.csv", data, "text/csv")},
+        data={"mapping": json.dumps(mapping), "survey_label": "Wellbeing survey"},
+    )
+    assert r.status_code == 200
+
+    runs = client.get("/history").json()["runs"]
+    assert len(runs) == 1
+    assert runs[0]["survey_label"] == "Wellbeing survey"
+    assert runs[0]["total"] == len(df)
+
+
+def test_history_response_carries_no_respondent_data(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    mapping = _build_training_mapping(list(df.columns))
+    client.post(
+        "/analyze",
+        files={"file": ("s.csv", data, "text/csv")},
+        data={"mapping": json.dumps(mapping), "survey_label": "Wellbeing survey"},
+    )
+    blob = json.dumps(client.get("/history").json())
+    for forbidden in ["R0001", "flag_reason", "respondents", "Email", "grade level"]:
+        assert forbidden not in blob
+
+
+def test_history_can_be_filtered_and_cleared(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    mapping = _build_training_mapping(list(df.columns))
+    for label in ("Wellbeing survey", "Climate survey"):
+        client.post(
+            "/analyze",
+            files={"file": ("s.csv", data, "text/csv")},
+            data={"mapping": json.dumps(mapping), "survey_label": label},
+        )
+    assert len(client.get("/history").json()["runs"]) == 2
+    filtered = client.get("/history", params={"survey_label": "Climate survey"}).json()
+    assert len(filtered["runs"]) == 1
+
+    assert client.delete("/history").json()["removed"] == 2
+    assert client.get("/history").json()["runs"] == []
+
+
+def test_analyze_returns_question_summary(client, tmp_path_factory):
+    data, df = _generated_csv(tmp_path_factory)
+    mapping = _build_training_mapping(list(df.columns))
+    r = client.post(
+        "/analyze",
+        files={"file": ("s.csv", data, "text/csv")},
+        data={"mapping": json.dumps(mapping)},
+    )
+    summary = r.json()["question_summary"]
+    n_questions = sum(1 for role in mapping["columns"].values() if role == "question")
+    assert len(summary) == n_questions
+    assert summary[0]["position"] == 1
+    assert sum(summary[0]["counts"].values()) == len(df)

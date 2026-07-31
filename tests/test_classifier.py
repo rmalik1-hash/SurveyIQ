@@ -297,3 +297,65 @@ def test_behavior_shift_reason_appears_for_a_fatiguer_end_to_end():
 
     # at least some explanations should name where the behaviour changed
     assert any("from question" in r for r in reasons_seen)
+
+
+def test_zero_variance_is_suspicious_in_both_directions():
+    """Almost no spread means the same answer went down the page.
+
+    Only treating *high* variance as suspicious left straightliners with no
+    incriminating clause at all, so they fell through to the vague catch-all.
+    """
+    flat, suspicious = _describe_split(
+        "response_variance", 0.0, went_left=True, is_nan=False
+    )
+    assert suspicious is True
+    assert "same answer" in flat
+
+    erratic, suspicious = _describe_split(
+        "response_variance", 0.45, went_left=False, is_nan=False
+    )
+    assert suspicious is True
+    assert "erratic" in erratic
+
+    # a normal middling spread is not itself evidence of anything
+    _, suspicious = _describe_split(
+        "response_variance", 0.22, went_left=True, is_nan=False
+    )
+    assert suspicious is False
+
+
+def test_vague_reasons_stay_rare_on_surveys_unlike_the_training_data():
+    """Real uploads never match the training shape; explanations must survive that.
+
+    Scores surveys of varying length and contamination with the startup model and
+    asserts the catch-all reason stays rare.
+    """
+    import tempfile
+    from pathlib import Path
+    from data.synthetic.generator import generate_survey_csv
+    from src.api.pipeline_service import (
+        _build_training_mapping, analyze, train_startup_model,
+    )
+
+    model = train_startup_model()
+    vague_total = flagged_total = 0
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for n, questions, contamination, seed in [
+            (150, 15, 0.25, 1), (200, 12, 0.20, 2), (120, 20, 0.35, 3),
+        ]:
+            out = Path(tmp) / f"u{seed}.csv"
+            generate_survey_csv(
+                n_respondents=n, n_questions=questions, scale=(1, 5),
+                contamination_rate=contamination, seed=seed, output_path=str(out),
+            )
+            raw = pd.read_csv(out)
+            result = analyze(raw, _build_training_mapping(list(raw.columns)), model)
+            flagged = [r for r in result["respondents"] if r["reliability_score"] < 0.5]
+            flagged_total += len(flagged)
+            vague_total += sum(1 for r in flagged if "No single signal" in r["flag_reason"])
+
+    assert flagged_total > 50
+    assert vague_total / flagged_total < 0.15, (
+        f"{vague_total}/{flagged_total} flags could not be explained specifically"
+    )
